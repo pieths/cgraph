@@ -287,7 +287,10 @@ const CGraph = (function() {
                 /* Given a mode and a ch, determine the new mode */
 
                 if (ch == "") newMode = MODE_INPUT_END;
-                else if (mode == MODE_GROUP) checkForDelimiter(ch, '(', ')');
+                else if (mode == MODE_GROUP)
+                {
+                    if (ch == ')') newMode = MODE_UNKNOWN;
+                }
                 else if (mode == MODE_STRING) checkForDelimiter(ch, '"', '"');
                 else if (mode == MODE_SCRIPT) checkForDelimiter(ch, '{', '}');
                 else if ((mode == MODE_UNKNOWN) ||

@@ -227,6 +227,16 @@ const cgraphTester = (function() {
                  {type: 'command_boundary', value: ''}
              ]);
 
+        test(`An open parenthesis inside a group has no effect on group processing.`,
+
+             'this (group of (characters) then',
+             [
+                 {type: 'unknown', value: 'this '},
+                 {type: 'group', value: 'group of (characters'},
+                 {type: 'unknown', value: ' then'},
+                 {type: 'command_boundary', value: ''}
+             ]);
+
         /*
          * STRING TESTS
          */
