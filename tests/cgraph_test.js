@@ -189,6 +189,24 @@ const cgraphTester = (function() {
                  {type: 'command_boundary', value: ''}
              ]);
 
+        test(`An empty group is ignored.`,
+
+             "a()b",
+             [
+                 {type: 'unknown', value: 'ab'},
+                 {type: 'command_boundary', value: ''}
+             ]);
+
+        test(`A group with only whitespace inside of it is a group containing that whitespace.`,
+
+             "a( )b",
+             [
+                 {type: 'unknown', value: 'a'},
+                 {type: 'group', value: ' '},
+                 {type: 'unknown', value: 'b'},
+                 {type: 'command_boundary', value: ''}
+             ]);
+
         test(`Command boundary characters have no special meaning inside of groups.`,
 
              'a (group; of\n characters\r\n)',
@@ -198,12 +216,12 @@ const cgraphTester = (function() {
                  {type: 'command_boundary', value: ''}
              ]);
 
-        test(`Script or string delimiters have no special meaning inside of groups.`,
+        test(`String delimiters have no special meaning inside of groups.`,
 
-             'a ("group" of {characters})',
+             'a ("group" of characters)',
              [
                  {type: 'unknown', value: 'a '},
-                 {type: 'group', value: '"group" of {characters}'},
+                 {type: 'group', value: '"group" of characters'},
                  {type: 'command_boundary', value: ''}
              ]);
 
@@ -438,6 +456,79 @@ const cgraphTester = (function() {
                  {type: 'unknown', value: 'this '},
                  {type: 'string', value: 'string of characters'},
                  {type: 'unknown', value: ' more text'},
+                 {type: 'command_boundary', value: ''}
+             ]);
+
+        /*
+         * GROUP SCRIPT TESTS
+         */
+
+        test(`A group script block is delimited by curly braces { }.`,
+
+             'a (group {b=3; return b + 1})',
+             [
+                 {type: 'unknown', value: 'a '},
+                 {type: 'group', value: 'group 4'},
+                 {type: 'command_boundary', value: ''}
+             ]);
+
+        test(`An empty script block inside a group is replaced with nothing.`,
+
+             'a(b{})c',
+             [
+                 {type: 'unknown', value: 'a'},
+                 {type: 'group', value: 'b'},
+                 {type: 'unknown', value: 'c'},
+                 {type: 'command_boundary', value: ''}
+             ]);
+
+        test(`An empty script block inside an empty group is ignored.`,
+
+             'a({})c',
+             [
+                 {type: 'unknown', value: 'ac'},
+                 {type: 'command_boundary', value: ''}
+             ]);
+
+        test(`String and group delimiters output by a script have no special
+              meaning inside of a group.`,
+
+             'a {a=`"two"`; b = "(three)"} test ({=b} and {=a})',
+             [
+                 {type: 'unknown', value: 'a  test '},
+                 {type: 'group', value: '(three) and "two"'},
+                 {type: 'command_boundary', value: ''}
+             ]);
+
+        test(`Script delimiters output by a script have no special
+              meaning inside of a group.`,
+
+             'a {a=`{b=3}`} test ({=a})',
+             [
+                 {type: 'unknown', value: 'a  test '},
+                 {type: 'group', value: '{b=3}'},
+                 {type: 'command_boundary', value: ''}
+             ]);
+
+        test(`A script which is not closed inside of a group will
+              not be executed and its text will be inserted in the group
+              and the group will automatically be closed.`,
+
+             'a (group {b=3; return b + 1',
+             [
+                 {type: 'unknown', value: 'a '},
+                 {type: 'group', value: 'group b=3; return b + 1'},
+                 {type: 'command_boundary', value: ''}
+             ]);
+
+        test(`A group which is not closed where the last character is the end
+              of the script will close the group and insert the result of
+              executing the script.`,
+
+             'a (group {b=3; return b + 1}',
+             [
+                 {type: 'unknown', value: 'a '},
+                 {type: 'group', value: 'group 4'},
                  {type: 'command_boundary', value: ''}
              ]);
 
