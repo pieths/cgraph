@@ -15,8 +15,8 @@ const cgraphTester = (function() {
     {
         var stats = { passes: 0, failures: 0 };
 
-        let createErrorString = (result, expectedResult) => {
-            let string = "Result:\n[";
+        let createErrorString = (input, result, expectedResult) => {
+            let string = input + "\n\nResult:\n[";
 
             for (var i=0; i < result.length; i++)
             {
@@ -54,7 +54,7 @@ const cgraphTester = (function() {
             if (result.length != expectedResult.length)
             {
                 passed = false;
-                logger.error(createErrorString(result, expectedResult));
+                logger.error(createErrorString(input, result, expectedResult));
             }
             else
             {
@@ -64,7 +64,7 @@ const cgraphTester = (function() {
                         (result[i].value != expectedResult[i].value))
                     {
                         passed = false;
-                        logger.error(createErrorString(result, expectedResult));
+                        logger.error(createErrorString(input, result, expectedResult));
                         break;
                     }
                 }
