@@ -532,6 +532,16 @@ const cgraphTester = (function() {
                  {type: 'command_boundary', value: ''}
              ]);
 
+        test(`A script which outputs a group which contains a script
+              has the inner script executed as a "group script".`,
+
+             'a {x=3; a=`(b{=x+2}c)`} test {=a}',
+             [
+                 {type: 'unknown', value: 'a  test '},
+                 {type: 'group', value: 'b5c'},
+                 {type: 'command_boundary', value: ''}
+             ]);
+
 
         logger.log("Completed testing parser.parse");
         logger.log(`Passes:   ${stats.passes}`);
