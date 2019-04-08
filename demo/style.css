@@ -1,0 +1,13 @@
+#input
+{
+    width: 90%;
+    height: 48%;
+}
+
+#output
+{
+    width: 90%;
+    height: 48%;
+    border: 1px solid #ddd;
+}
+
