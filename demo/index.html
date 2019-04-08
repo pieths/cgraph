@@ -1,38 +1,12 @@
 <html>
+
 <head>
 <link rel="stylesheet" href="./style.css">
+<script type="text/javascript" src="./main.js"></script>
 <script type="text/javascript" src="../src/smooth-0.1.7.js"></script>
 <script type="text/javascript" src="../src/cgraph.js"></script>
-<script>
-function initialize()
-{
-    var inputElement = document.getElementById('input');
-    inputElement.addEventListener('input', evt => { parseInput(inputElement.value) });
-
-    parseInput(inputElement.value);
-}
-
-function parseInput(input)
-{
-    var outputElement = document.getElementById('output');
-
-    // Remove all child nodes
-    while (outputElement.hasChildNodes())
-    {
-        outputElement.removeChild(outputElement.lastChild);
-    }
-
-    var textNode = document.createTextNode(input);
-
-    var element = document.createElement('div');
-    element.setAttribute('data-content-type', 'cgraph_1');
-    element.appendChild(textNode);
-    outputElement.appendChild(element);
-
-    CGraph.convertElement(element, {shrinkable: true});
-}
-</script>
 </head>
+
 <body onload="initialize()">
 
 <div id="output"></div>
@@ -40,6 +14,12 @@ function parseInput(input)
 <textarea id="input">
 init w 30em r -10 -10 150 100 fss 0.333; grid; axis;
 </textarea>
+
+<div class="control-group">
+    <button onclick="addPreset()">Save</button>
+    <button onclick="deletePreset()">Delete</button>
+    <select id="presets_list"></select>
+</div>
 
 </body>
 </html>
