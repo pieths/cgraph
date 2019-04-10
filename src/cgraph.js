@@ -203,79 +203,159 @@ const CGraph = (function() {
     const parser = (function() {
         const DELIMITED_BLOCKS_START_VALUE = 20;
 
-        const MODE_UNKNOWN = 0;
-        const MODE_COMMAND_BOUNDARY = 1;
-        const MODE_LINE_CONTINUATION = 2;
-        const MODE_INPUT_END = 3;
-        const MODE_GROUP = DELIMITED_BLOCKS_START_VALUE;
-        const MODE_STRING = DELIMITED_BLOCKS_START_VALUE + 1;
-        const MODE_SCRIPT = DELIMITED_BLOCKS_START_VALUE + 2;
-        const MODE_GROUP_SCRIPT = DELIMITED_BLOCKS_START_VALUE + 3;
+        const TYPE_UNKNOWN = 0;
+        const TYPE_TEXT = 1;
+        const TYPE_COMMAND_BOUNDARY = 2;
+        const TYPE_LINE_CONTINUATION = 3;
+        const TYPE_INPUT_END = 4;
+        const TYPE_GROUP = DELIMITED_BLOCKS_START_VALUE;
+        const TYPE_STRING = DELIMITED_BLOCKS_START_VALUE + 1;
+        const TYPE_SCRIPT = DELIMITED_BLOCKS_START_VALUE + 2;
+        const TYPE_GROUP_SCRIPT = DELIMITED_BLOCKS_START_VALUE + 3;
 
-        let modeNames =
+        function List()
         {
-            [MODE_UNKNOWN]: 'unknown',
-            [MODE_GROUP]: 'group',
-            [MODE_STRING]: 'string',
-            [MODE_COMMAND_BOUNDARY]: 'command_boundary'
-        };
+            let head = null;
+            let tail = null;
 
-        function mapModesToNames(parts)
-        {
-            parts.forEach(part => part.type = modeNames[part.type]);
-        }
+            this.getHead = () => head;
+            this.getTail = () => tail;
 
-        function joinConsecutiveUnknowns(parts)
-        {
-            let tmpParts = [parts.shift()];
-
-            parts.forEach(part => {
-                let top = tmpParts[tmpParts.length - 1];
-
-                if (part.type === MODE_LINE_CONTINUATION)
+            this.append = function(type, value)
+            {
+                let node = {data: {type: type, value: value}, prev: null, next: null};
+                if (head == null)
                 {
-                    part.type = MODE_UNKNOWN;
-                    part.value = " ";
+                    head = node;
+                    tail = node;
+                }
+                else
+                {
+                    let merged = false;
+
+                    if (tail.data.type == TYPE_TEXT)
+                    {
+                        if (type == TYPE_TEXT)
+                        {
+                            tail.data.value += value;
+                            merged = true;
+                        }
+                        else if (type == TYPE_LINE_CONTINUATION)
+                        {
+                            tail.data.value += ' ';
+                            merged = true;
+                        }
+                    }
+
+                    if (!merged)
+                    {
+                        tail.next = node;
+                        node.prev = tail;
+                        tail = node;
+                    }
+                }
+            };
+
+            function Iterator(node)
+            {
+                let current = node;
+
+                this.getNode = () => { return current; }
+                this.getData = () => { return current.data; }
+                this.advance = () => { if (current) current = current.next; }
+                this.atEnd = () => { return (current === null); }
+                this.clone = () => { return new Iterator(current); }
+                this.equals = (other) => { return (current == other.getNode()); }
+                this.remove = () => {
+                    if (current.prev === null)
+                    {
+                        head = current.next;
+                        if (tail == current) tail = null;
+                        else head.prev = null;
+                        current = current.next;
+                    }
+                    else if (current.next === null)
+                    {
+                        tail = tail.prev;
+                        tail.next = null;
+                        current = null;
+                    }
+                    else
+                    {
+                        current.prev.next = current.next;
+                        current.next.prev = current.prev;
+                        current = current.next;
+
+                        this.mergeIfRequired();
+                    }
                 }
 
-                if ((part.type === MODE_UNKNOWN) &&
-                    (top.type === MODE_UNKNOWN))
-                {
-                    top.value += part.value;
-                }
-                else tmpParts.push(part);
-            });
+                /* Replace the current node with the passed in list */
+                this.replaceWithList = (list) => {
+                    let otherHead = list.getHead();
+                    let otherTail = list.getTail();
 
-            return tmpParts;
+                    if ((current === null) || (otherHead === null)) return;
+
+                    /*
+                     * Insert the list after the current node.
+                     * Then cleanup the end points.
+                     */
+
+                    let next = current.next;
+                    current.next = otherHead;
+                    otherHead.prev = current;
+                    otherTail.next = next;
+
+                    if (next === null) tail = otherTail;
+                    else
+                    {
+                        next.prev = otherTail;
+                        new Iterator(next).mergeIfRequired();
+                    }
+
+                    this.remove();
+                    list.clear();
+                }
+
+                this.mergeIfRequired = () => {
+                    let prevType = current.prev.data.type;
+                    let typesMatch = (current.data.type === prevType);
+
+                    if (typesMatch &&
+                        ((prevType == TYPE_TEXT) ||
+                         (prevType == TYPE_COMMAND_BOUNDARY)))
+                    {
+                        current.prev.data.value += current.data.value;
+                        this.remove();
+                    }
+                }
+            }
+
+            this.getIterator = function() { return new Iterator(head); }
+            this.clear = function() { head = null; tail = null; }
         }
 
-        /*
-         * See the testParse method in cgraph_test.js for the
-         * tests which define the input/output requirements
-         * for this method.
-         */
         function parse(input)
         {
-            if (input == "") return [];
-
             let i = 0;
             let start = 0;
-            let parts = [];
-            let values = [];
-            let stateStack = [];
+            let list = new List();
             let ch = input.charAt(i);
             let delimCount = 0;
 
-            let mode = MODE_UNKNOWN;
-            let newMode = MODE_UNKNOWN;
+            if (input == "") return list;
 
-            let checkForDelimiter = (ch, open, close, newModeArg) =>
+            let type = TYPE_UNKNOWN;
+            let newType = TYPE_UNKNOWN;
+
+            let checkForDelimiter = (ch, open, close, newTypeArg) =>
             {
-                if (newModeArg === undefined) newModeArg = MODE_UNKNOWN;
+                if (newTypeArg === undefined) newTypeArg = TYPE_UNKNOWN;
 
                 if (ch == close)
                 {
-                    if (delimCount == 0) newMode = newModeArg;
+                    if (delimCount == 0) newType = newTypeArg;
                     else delimCount--;
                 }
                 else if (ch == open) delimCount++;
@@ -285,116 +365,80 @@ const CGraph = (function() {
             let isEOLChar = ch => ((ch == "\r") || (ch == "\n"));
 
 
-            while (mode != MODE_INPUT_END)
+            while (type != TYPE_INPUT_END)
             {
-                /* Given a mode and a ch, determine the new mode */
+                /* Given a type and a ch, determine the new type */
 
-                if (ch == "") newMode = MODE_INPUT_END;
-                else if (mode == MODE_GROUP)
+                if (ch == "") newType = TYPE_INPUT_END;
+                else if (type == TYPE_GROUP)
                 {
-                    if (ch == ')') newMode = MODE_UNKNOWN;
-                    else if (ch == '{') newMode = MODE_GROUP_SCRIPT;
+                    if (ch == ')') newType = TYPE_UNKNOWN;
+                    else if (ch == '{') newType = TYPE_GROUP_SCRIPT;
                 }
-                else if (mode == MODE_STRING) checkForDelimiter(ch, '"', '"');
-                else if (mode == MODE_SCRIPT) checkForDelimiter(ch, '{', '}');
-                else if (mode == MODE_GROUP_SCRIPT) checkForDelimiter(ch, '{', '}', MODE_GROUP);
-                else if ((mode == MODE_UNKNOWN) ||
-                         (mode == MODE_COMMAND_BOUNDARY) ||
-                         (mode == MODE_LINE_CONTINUATION))
+                else if (type == TYPE_STRING) checkForDelimiter(ch, '"', '"');
+                else if (type == TYPE_SCRIPT) checkForDelimiter(ch, '{', '}');
+                else if (type == TYPE_GROUP_SCRIPT) checkForDelimiter(ch, '{', '}', TYPE_GROUP);
+                else if ((type == TYPE_UNKNOWN) ||
+                         (type == TYPE_TEXT) ||
+                         (type == TYPE_COMMAND_BOUNDARY) ||
+                         (type == TYPE_LINE_CONTINUATION))
                 {
-                    if ((mode == MODE_LINE_CONTINUATION) && isEOLChar(ch)) { }
-                    else if (ch == '(') newMode = MODE_GROUP;
-                    else if (ch == '"') newMode = MODE_STRING;
-                    else if (ch == '{') newMode = MODE_SCRIPT;
-                    else if ((ch == "\r") || (ch == "\n") || (ch == ';')) newMode = MODE_COMMAND_BOUNDARY;
-                    else if ((ch == "\\") && isEOLChar(peek())) newMode = MODE_LINE_CONTINUATION;
-                    else newMode = MODE_UNKNOWN;
+                    if ((type == TYPE_LINE_CONTINUATION) && isEOLChar(ch)) { }
+                    else if (ch == '(') newType = TYPE_GROUP;
+                    else if (ch == '"') newType = TYPE_STRING;
+                    else if (ch == '{') newType = TYPE_SCRIPT;
+                    else if (isEOLChar(ch) || (ch == ';')) newType = TYPE_COMMAND_BOUNDARY;
+                    else if ((ch == "\\") && isEOLChar(peek())) newType = TYPE_LINE_CONTINUATION;
+                    else newType = TYPE_TEXT;
                 }
 
-                /* Process any mode changes or end of inputs */
+                /* Process any type changes or end of inputs */
 
-                if (newMode == MODE_INPUT_END)
+                if (newType == TYPE_INPUT_END)
                 {
-                    if (i > start) values.push(input.substring(start, i));
-
-                    if (stateStack.length > 0) /* end of script return value string */
+                    if (type == TYPE_GROUP_SCRIPT)
                     {
-                        let state = stateStack.pop();
-                        input = state.input;
-                        start = state.start;
-                        i = state.i;
-                        newMode = mode;
+                        list.append(TYPE_GROUP_SCRIPT, input.substring(start, i));
+                        list.append(TYPE_GROUP, '');
+                        type = TYPE_GROUP;
                     }
-                    else /* reached the end of the initial input string */
+                    else if (type != TYPE_UNKNOWN)
                     {
-                        if (mode == MODE_GROUP_SCRIPT) mode = MODE_GROUP;
-
-                        if (values.length > 0)
-                        {
-                            parts.push({type: mode, value: values.join('')});
-                        }
-
-                        if (mode != MODE_COMMAND_BOUNDARY)
-                            parts.push({type: MODE_COMMAND_BOUNDARY, value: ''});
-
-                        mode = MODE_INPUT_END;
+                        list.append(type, input.substring(start, i));
                     }
+
+                    if (type != TYPE_COMMAND_BOUNDARY)
+                        list.append(TYPE_COMMAND_BOUNDARY, '');
+
+                    type = TYPE_INPUT_END;
                 }
-                else if (newMode != mode)
+                else if (newType != type)
                 {
-                    if (i > start)
+                    if (type != TYPE_UNKNOWN)
                     {
-                        let value = input.substring(start, i);
-
-                        if (mode == MODE_GROUP_SCRIPT)
-                        {
-                            let scriptResult = jsContext.execute(value);
-                            values.push(scriptResult);
-                        }
-                        else values.push(value);
+                        list.append(type, input.substring(start, i));
                     }
 
-                    if ((values.length > 0) &&
-                        (mode != MODE_GROUP_SCRIPT) &&
-                        (newMode != MODE_GROUP_SCRIPT))
-                    {
-                        let value = values.join('');
-                        values = [];
-
-                        if (mode == MODE_SCRIPT)
-                        {
-                            stateStack.push({input: input, i: i, start: i + 1});
-                            input = jsContext.execute(value);
-                            i = -1;
-                        }
-                        else parts.push({type: mode, value: value});
-                    }
-
-                    start = ((mode >= DELIMITED_BLOCKS_START_VALUE) ||
-                             (newMode >= DELIMITED_BLOCKS_START_VALUE)) ? i + 1 : i;
-                    mode = newMode;
+                    start = ((type >= DELIMITED_BLOCKS_START_VALUE) ||
+                             (newType >= DELIMITED_BLOCKS_START_VALUE)) ? i + 1 : i;
+                    type = newType;
                 }
 
                 ch = input.charAt(++i);
             }
 
-            if (parts.length > 1)
-            {
-                let part = parts[parts.length - 2];
-                if (part.type == MODE_SCRIPT)
-                {
-                    part.type = MODE_UNKNOWN;
-                    part.value = '';
-                }
-            }
-
-            parts = joinConsecutiveUnknowns(parts);
-            mapModesToNames(parts);
-            return parts;
+            return list;
         }
 
         return {
-            parse: function(input) { return parse(input); }
+            parse: function(input) { return parse(input); },
+
+            TYPE_TEXT: TYPE_TEXT,
+            TYPE_COMMAND_BOUNDARY: TYPE_COMMAND_BOUNDARY,
+            TYPE_GROUP: TYPE_GROUP,
+            TYPE_STRING: TYPE_STRING,
+            TYPE_SCRIPT: TYPE_SCRIPT,
+            TYPE_GROUP_SCRIPT: TYPE_GROUP_SCRIPT,
         };
     })();
 
