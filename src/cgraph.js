@@ -31,12 +31,6 @@ const CGraph = (function() {
     var urlMap = {};
 
 
-    function init(baseUrl, initializedCallback)
-    {
-        jsContext.init(baseUrl, initializedCallback);
-    }
-
-
     function setUrlMap(map)
     {
         if (typeof map == "object") urlMap = map;
@@ -124,78 +118,6 @@ const CGraph = (function() {
             enabled: function() { return enabled(); },
             get: function(key) { return get(key); },
             put: function(key, rootNode) { put(key, rootNode); }
-        };
-    })();
-
-
-    const jsContext = (function() {
-        var iframe =  null;
-        var iframe_id = "jsContextFrame";
-
-        function init(baseUrl, callback)
-        {
-            if (iframe === null)
-            {
-                let frameContents = `
-                    <!DOCTYPE html><html><head>
-                    <script type="text/javascript" src="${baseUrl}/js_context_utils.js"></script>
-                    </head><body></body></html>`;
-
-                iframe = document.createElement('iframe');
-
-                iframe.addEventListener("load", function() {
-                    if (typeof callback === 'function') callback();
-                });
-
-                iframe.setAttribute('id', iframe_id);
-                iframe.setAttribute('srcdoc', frameContents);
-                iframe.setAttribute('style', "display: none;");
-                iframe.setAttribute('sandbox', "allow-scripts allow-same-origin");
-                document.getElementsByTagName('body')[0].appendChild(iframe);
-            }
-        }
-
-        function execute(code)
-        {
-            var result = "";
-
-            if (/^\s*=/.test(code))
-            {
-                code = code.replace("=", "return ");
-            }
-
-            try
-            {
-                let returnValue = iframe.contentWindow.runCode(code);
-                switch (typeof returnValue)
-                {
-                    case 'string':
-                    case 'number':
-                        result = returnValue.toString();
-                        break;
-
-                    case 'object':
-                        switch (returnValue.constructor.name)
-                        {
-                            case 'Point':
-                            case 'Bounds':
-                                result = returnValue.toString();
-                                break;
-                        }
-                        break;
-                }
-            }
-            catch(error)
-            {
-                logError(error);
-            }
-
-            return result;
-        }
-
-        return {
-            init: function(baseUrl, callback) { init(baseUrl, callback); },
-            execute: function(code) { return execute(code); }
         };
     })();
 
@@ -2372,6 +2294,53 @@ const CGraph = (function() {
     commands['img'].func = commands['image'].func;
 
 
+    function executeJS(code)
+    {
+        var result = "";
+
+        if (/^\s*=/.test(code))
+        {
+            code = code.replace("=", "return ");
+        }
+
+        code = `'use strict';${code}`;
+
+        try
+        {
+            let returnContext = {r: ''};
+
+            let func = new Function('_', code);
+            let funcReturnValue = func(returnContext);
+
+            if (returnContext.r !== '') funcReturnValue = returnContext.r;
+
+            switch (typeof funcReturnValue)
+            {
+                case 'string':
+                case 'number':
+                    result = funcReturnValue.toString();
+                    break;
+
+                case 'object':
+                    switch (funcReturnValue.constructor.name)
+                    {
+                        case 'Point':
+                        case 'Bounds':
+                            result = funcReturnValue.toString();
+                            break;
+                    }
+                    break;
+            }
+        }
+        catch(error)
+        {
+            logError(error);
+        }
+
+        return result;
+    }
+
+
     function parseArgs(commandName, argsList)
     {
         var args = {};
@@ -2626,10 +2595,6 @@ const CGraph = (function() {
      * Return the public api.
      */
     return {
-        init: function(baseUrl, initializedCallback)
-        {
-            init(baseUrl, initializedCallback);
-        },
         setUrlMap: function(map)
         {
             setUrlMap(map);

@@ -4,13 +4,6 @@
 
 const cgraphTester = (function() {
 
-    const STATE_UNINITIALIZED = 0;
-    const STATE_INITIALIZING = 1;
-    const STATE_INITIALIZED = 2;
-
-    var state = STATE_UNINITIALIZED;
-
-
     function testParse(parser, logger)
     {
         var stats = { passes: 0, failures: 0 };
@@ -1170,22 +1163,10 @@ const cgraphTester = (function() {
 
     function runTests(logger)
     {
-        if (state === STATE_UNINITIALIZED)
-        {
-            state = STATE_INITIALIZING;
- 
-            CGraph.init("../src/", () => {
-                state = STATE_INITIALIZED;
-                runTests(logger);
-            });
-        }
-        else if (state === STATE_INITIALIZED)
-        {
-            let testObject = CGraph.getTestObject();
+        let testObject = CGraph.getTestObject();
 
-            testParse(testObject.parser, logger);
-            testParserListIterator(testObject.parser, logger);
-        }
+        testParse(testObject.parser, logger);
+        testParserListIterator(testObject.parser, logger);
     }
 
     return {
