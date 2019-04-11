@@ -813,6 +813,40 @@ const cgraphTester = (function() {
         });
 
         test(
+        `Replacing a node in a list with an empty list should just remove the node.`,
+        () => {
+            let list1 = parser.parse('(a);(c)');
+            let list2 = parser.parse('');
+
+            verifyList(list1, [
+                {type: parser.TYPE_GROUP, value: 'a'},
+                {type: parser.TYPE_COMMAND_BOUNDARY, value: ';'},
+                {type: parser.TYPE_GROUP, value: 'c'},
+                {type: parser.TYPE_COMMAND_BOUNDARY, value: ''},
+            ]);
+
+            verifyList(list2, []);
+
+            let it = list1.getIterator();
+            it.advance();
+
+            verifyIterator(it, parser.TYPE_COMMAND_BOUNDARY, ';');
+
+            it.replaceWithList(list2);
+
+            verifyList(list1, [
+                {type: parser.TYPE_GROUP, value: 'a'},
+                {type: parser.TYPE_GROUP, value: 'c'},
+                {type: parser.TYPE_COMMAND_BOUNDARY, value: ''},
+            ]);
+
+            /*
+             * The current node should point to the next node.
+             */
+            verifyIterator(it, parser.TYPE_GROUP, 'c');
+        });
+
+        test(
         `Replacing the last node in a list should update the tail accordingly.`,
         () => {
             let list1 = parser.parse('(a)');

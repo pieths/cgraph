@@ -295,27 +295,34 @@ const CGraph = (function() {
                     let otherHead = list.getHead();
                     let otherTail = list.getTail();
 
-                    if ((current === null) || (otherHead === null)) return;
+                    if (current === null) return;
 
-                    /*
-                     * Insert the list after the current node.
-                     * Then cleanup the end points.
-                     */
-
-                    let next = current.next;
-                    current.next = otherHead;
-                    otherHead.prev = current;
-                    otherTail.next = next;
-
-                    if (next === null) tail = otherTail;
+                    if (list.isEmpty())
+                    {
+                        this.remove();
+                    }
                     else
                     {
-                        next.prev = otherTail;
-                        new Iterator(next).mergeIfRequired();
-                    }
+                        /*
+                         * Insert the list after the current node.
+                         * Then cleanup the end points.
+                         */
 
-                    this.remove();
-                    list.clear();
+                        let next = current.next;
+                        current.next = otherHead;
+                        otherHead.prev = current;
+                        otherTail.next = next;
+
+                        if (next === null) tail = otherTail;
+                        else
+                        {
+                            next.prev = otherTail;
+                            new Iterator(next).mergeIfRequired();
+                        }
+
+                        this.remove();
+                        list.clear();
+                    }
                 }
 
                 this.mergeIfRequired = () => {
@@ -333,6 +340,7 @@ const CGraph = (function() {
             }
 
             this.getIterator = function() { return new Iterator(head); }
+            this.isEmpty = function() { return (head === null); }
             this.clear = function() { head = null; tail = null; }
         }
 
