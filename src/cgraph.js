@@ -2354,82 +2354,144 @@ const CGraph = (function() {
     }
 
 
-    function parseArgs(commandName, argsList)
-    {
-        var args = {};
+    const commandProcessor = (function() {
 
-        if (commands.hasOwnProperty(commandName))
-        {
-            var params = commands[commandName].params;
-            var i = 0;
-
-            while (i < argsList.length)
-            {
-                var argName = argsList[i];
-                if (params.hasOwnProperty(argName))
-                {
-                    var numValues = params[argName].numValues;
-                    var values = [];
-                    i++;
-
-                    while ((i < argsList.length) && (numValues > 0))
-                    {
-                        values.push(argsList[i]);
-                        numValues--;
-                        i++;
-                    }
-
-                    if (values.length === params[argName].numValues)
-                    {
-                        args[argName] = values;
-                    }
-
-                    i--;
-                }
-
-                i++;
-            }
-        }
-
-        return args;
-    };
-
-
-    function executeCommands(cg, parts)
-    {
-        var command = {name: "", args: []};
         var previousCommand = null;
         var numExecutedCommands = 0;
+
+
+        function reset()
+        {
+            previousCommand = null;
+            numExecutedCommands = 0;
+        }
+
+
+        function parseArgs(commandName, argsList)
+        {
+            var args = {};
+
+            if (commands.hasOwnProperty(commandName))
+            {
+                var params = commands[commandName].params;
+                var i = 0;
+
+                while (i < argsList.length)
+                {
+                    var argName = argsList[i];
+                    if (params.hasOwnProperty(argName))
+                    {
+                        var numValues = params[argName].numValues;
+                        var values = [];
+                        i++;
+
+                        while ((i < argsList.length) && (numValues > 0))
+                        {
+                            values.push(argsList[i]);
+                            numValues--;
+                            i++;
+                        }
+
+                        if (values.length === params[argName].numValues)
+                        {
+                            args[argName] = values;
+                        }
+
+                        i--;
+                    }
+
+                    i++;
+                }
+            }
+
+            return args;
+        }
+
 
         /*
          * Takes the args in source and adds them to target.
          */
-        var mergeArgs = (target, source) => {
+        function mergeArgs(target, source)
+        {
             for (var arg in source.args)
             {
                 target.args[arg] = [];
                 source.args[arg].forEach(value => target.args[arg].push(value));
             }
-        };
+        }
 
-        for (var i=0; i < parts.length; i++)
+
+        function collapseGroup(it)
         {
-            var type = parts[i].type;
-            if (type == 'unknown')
+            let groupIt = it.clone();
+            let origData = groupIt.getData();
+            let prevType = parser.TYPE_GROUP;
+
+            groupIt.advance();
+
+            while (!groupIt.atEnd())
             {
-                var trimmedValue = parts[i].value.trim();
-                if (trimmedValue.length > 0)
+                let data = groupIt.getData();
+
+                if (prevType == parser.TYPE_GROUP)
                 {
-                    var chunks = trimmedValue.split(/\s+/);
-                    if (command.name.length == 0) command.name = chunks.shift();
-                    chunks.forEach(chunk => command.args.push(chunk));
+                    if (data.type == parser.TYPE_GROUP_SCRIPT)
+                    {
+                        let scriptResult = executeJS(data.value);
+                        origData.value += scriptResult;
+                        groupIt.remove();
+                    }
+                    else break;
                 }
+                else if (prevType == parser.TYPE_GROUP_SCRIPT)
+                {
+                    if (data.type == parser.TYPE_GROUP)
+                    {
+                        origData.value += data.value;
+                        groupIt.remove();
+                    }
+                    else if (data.type == parser.TYPE_GROUP_SCRIPT)
+                    {
+                        let scriptResult = executeJS(data.value);
+                        origData.value += scriptResult;
+                        groupIt.remove();
+                    }
+                    else break;
+                }
+                else break;
+
+                prevType = data.type;
             }
-            else if ((type == 'group') || (type == 'string'))
+        }
+
+
+        function processCommand(it, cg)
+        {
+            let data = it.getData();
+            var command = {name: "", args: []};
+
+            while (data.type != parser.TYPE_COMMAND_BOUNDARY)
             {
-                if (command.name.length > 0) command.args.push(parts[i].value);
+                if (data.type == parser.TYPE_TEXT)
+                {
+                    var trimmedValue = data.value.trim();
+                    if (trimmedValue.length > 0)
+                    {
+                        var chunks = trimmedValue.split(/\s+/);
+                        if (command.name.length == 0) command.name = chunks.shift();
+                        chunks.forEach(chunk => command.args.push(chunk));
+                    }
+                }
+                else if ((data.type == parser.TYPE_GROUP) || (data.type == parser.TYPE_STRING))
+                {
+                    if (command.name.length > 0) command.args.push(data.value);
+                }
+
+                it.advance();
+                data = it.getData();
             }
-            else if ((type == 'command_boundary') && (command.name.length > 0))
+
+            if (command.name.length > 0)
             {
                 if ((command.name === ".") && (previousCommand !== null))
                 {
@@ -2469,11 +2531,54 @@ const CGraph = (function() {
                         numExecutedCommands++;
                     }
                 }
-
-                command = {name: "", args: []};
             }
         }
-    }
+
+
+        function processInput(input, cg)
+        {
+            let list = parser.parse(input);
+            let preprocessIt = list.getIterator();
+            let processIt = list.getIterator();
+
+            while (!processIt.atEnd())
+            {
+                while (!preprocessIt.atEnd())
+                {
+                    let type = preprocessIt.getData().type;
+
+                    if (type == parser.TYPE_COMMAND_BOUNDARY) break;
+                    else if (type == parser.TYPE_GROUP)
+                    {
+                        collapseGroup(preprocessIt);
+                        preprocessIt.advance();
+                    }
+                    else if (type == parser.TYPE_SCRIPT)
+                    {
+                        let updateProcessIt = processIt.equals(preprocessIt);
+
+                        let scriptResult = executeJS(preprocessIt.getData().value);
+                        let tmpList = parser.parse(scriptResult);
+                        tmpList.trimEnd(parser.TYPE_COMMAND_BOUNDARY);
+
+                        preprocessIt.replaceWithList(tmpList);
+                        if (updateProcessIt) processIt = preprocessIt.clone();
+                    }
+                    else preprocessIt.advance();
+                }
+
+                processCommand(processIt, cg);
+
+                processIt.advance();
+                preprocessIt.advance();
+            }
+        }
+
+        return {
+            reset: function() { reset(); },
+            processInput: function(input, cg) { return processInput(input, cg); },
+        };
+    })();
 
 
     function processElement(sourceElement)
@@ -2498,8 +2603,8 @@ const CGraph = (function() {
 
         if (cachedValue === null)
         {
-            let parts = parser.parse(sourceText);
-            executeCommands(cg, parts);
+            commandProcessor.reset();
+            commandProcessor.processInput(sourceText, cg);
 
             if (cache.enabled()) addToCache(sourceText, svgElement);
         }
