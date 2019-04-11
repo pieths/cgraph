@@ -178,6 +178,24 @@ const CGraph = (function() {
                 }
             };
 
+            this.trimEnd = function(type)
+            {
+                if (head == null) return;
+                else if (tail.data.type == type)
+                {
+                    if (tail.prev == null)
+                    {
+                        head = null;
+                        tail = null;
+                    }
+                    else
+                    {
+                        tail.prev.next = null;
+                        tail = tail.prev;
+                    }
+                }
+            }
+
             function Iterator(node)
             {
                 let current = node;

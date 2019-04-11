@@ -1156,6 +1156,49 @@ const cgraphTester = (function() {
             verifyIterator(it, parser.TYPE_GROUP, 'd');
         });
 
+        test(
+        `trimEnd does nothing if the list is empty.`,
+        () => {
+            let list = parser.parse('');
+
+            verifyList(list, []);
+
+            list.trimEnd(parser.TYPE_COMMAND_BOUNDARY);
+
+            verifyList(list, []);
+        });
+
+        test(
+        `trimEnd removes that last node from the list if it matches the
+         specified type.`,
+        () => {
+            let list = parser.parse('(b)');
+
+            verifyList(list, [
+                {type: parser.TYPE_GROUP, value: 'b'},
+                {type: parser.TYPE_COMMAND_BOUNDARY, value: ''},
+            ]);
+
+            list.trimEnd(parser.TYPE_STRING);
+
+            verifyList(list, [
+                {type: parser.TYPE_GROUP, value: 'b'},
+                {type: parser.TYPE_COMMAND_BOUNDARY, value: ''},
+            ]);
+
+            list.trimEnd(parser.TYPE_COMMAND_BOUNDARY);
+
+            verifyList(list, [
+                {type: parser.TYPE_GROUP, value: 'b'},
+            ]);
+
+            list.trimEnd(parser.TYPE_GROUP);
+
+            verifyList(list, []);
+
+            if (!list.isEmpty()) throw 'List is not empty';
+        });
+
         logger.log("Completed testing parser.List.Iterator");
         logger.log(`Passes:   ${stats.passes}`);
         logger.log(`Failures: ${stats.failures}`);
