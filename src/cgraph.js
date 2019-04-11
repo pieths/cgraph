@@ -145,6 +145,12 @@ const CGraph = (function() {
 
             this.append = function(type, value)
             {
+                if (type == TYPE_LINE_CONTINUATION)
+                {
+                    type = TYPE_TEXT;
+                    value = ' ';
+                }
+
                 let node = {data: {type: type, value: value}, prev: null, next: null};
                 if (head == null)
                 {
@@ -153,23 +159,12 @@ const CGraph = (function() {
                 }
                 else
                 {
-                    let merged = false;
-
-                    if (tail.data.type == TYPE_TEXT)
+                    if ((type == TYPE_TEXT) &&
+                        (tail.data.type == TYPE_TEXT))
                     {
-                        if (type == TYPE_TEXT)
-                        {
-                            tail.data.value += value;
-                            merged = true;
-                        }
-                        else if (type == TYPE_LINE_CONTINUATION)
-                        {
-                            tail.data.value += ' ';
-                            merged = true;
-                        }
+                        tail.data.value += value;
                     }
-
-                    if (!merged)
+                    else
                     {
                         tail.next = node;
                         node.prev = tail;

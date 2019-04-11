@@ -109,6 +109,15 @@ const cgraphTester = (function() {
                  {type: parser.TYPE_COMMAND_BOUNDARY, value: '\n\n\r\n\r\n\r\n\n\r\r'},
              ]);
 
+        test(`White space is considered part of a text block and is
+              passed through as is.`,
+
+             " a b\tc    d \t",
+             [
+                 {type: parser.TYPE_TEXT, value: " a b\tc    d \t"},
+                 {type: parser.TYPE_COMMAND_BOUNDARY, value: ''}
+             ]);
+
         /*
          * LINE CONTINUATION TESTS
          */
@@ -134,12 +143,13 @@ const cgraphTester = (function() {
                  {type: parser.TYPE_COMMAND_BOUNDARY, value: ''}
              ]);
 
-        test(`White space is considered part of a text block and is
-              passed through as is.`,
+        test(`Line continuation is not inserted in to the list if it immediately follows
+              something other than text.`,
 
-             " a b\tc    d \t",
+             "(a)\\\nb",
              [
-                 {type: parser.TYPE_TEXT, value: " a b\tc    d \t"},
+                 {type: parser.TYPE_GROUP, value: 'a'},
+                 {type: parser.TYPE_TEXT, value: ' b'},
                  {type: parser.TYPE_COMMAND_BOUNDARY, value: ''}
              ]);
 
