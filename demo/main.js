@@ -1,8 +1,20 @@
+/* Copyright (c) 2019, Piet Hein Schouten. All rights reserved.
+ * Licensed under the terms of the MIT license.
+ */
+import {CGraph} from '../src/cgraph.js';
+
+
 var presets = {};
 
 
 function initialize()
 {
+    let saveButton = document.getElementById('save_button');
+    saveButton.addEventListener('click', addPreset);
+
+    let deleteButton = document.getElementById('delete_button');
+    deleteButton.addEventListener('click', deletePreset);
+
     let inputElement = document.getElementById('input');
     inputElement.addEventListener('input', evt => { parseInput(inputElement.value) });
 
@@ -116,4 +128,7 @@ function parseInput(input)
 
     CGraph.convertElement(element, {shrinkable: true});
 }
+
+
+initialize();
 

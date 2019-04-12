@@ -2,12 +2,10 @@
 
 <head>
 <link rel="stylesheet" href="./style.css">
-<script type="text/javascript" src="./main.js"></script>
-<script type="text/javascript" src="../src/smooth-0.1.7.js"></script>
-<script type="text/javascript" src="../src/cgraph.js"></script>
+<script type="module" src="./main.js"></script>
 </head>
 
-<body onload="initialize()">
+<body>
 
 <div id="output"></div>
 
@@ -16,8 +14,8 @@ init w 30em r -10 -10 150 100 fss 0.333; grid; axis;
 </textarea>
 
 <div class="control-group">
-    <button onclick="addPreset()">Save</button>
-    <button onclick="deletePreset()">Delete</button>
+    <button id="save_button">Save</button>
+    <button id="delete_button">Delete</button>
     <select id="presets_list"></select>
 </div>
 
