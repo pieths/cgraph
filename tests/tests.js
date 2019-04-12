@@ -2,10 +2,10 @@
  * Licensed under the terms of the MIT license.
  */
 import {logger} from './logger.js'; 
-import {CGraph} from '../src/cgraph.js';
+import {parser} from '../src/parser.js';
 
 
-function testParse(parser)
+function testParse()
 {
     var stats = { passes: 0, failures: 0 };
 
@@ -457,7 +457,7 @@ function testParse(parser)
 }
 
 
-function testParserListIterator(parser)
+function testParserListIterator()
 {
     var stats = { passes: 0, failures: 0 };
 
@@ -1219,10 +1219,8 @@ function testParserListIterator(parser)
 
 function runTests()
 {
-    let testObject = CGraph.getTestObject();
-
-    testParse(testObject.parser);
-    testParserListIterator(testObject.parser);
+    testParse();
+    testParserListIterator();
 
     let numErrors = logger.numErrors();
     if (numErrors > 0)
