@@ -2,6 +2,8 @@
  * Licensed under the terms of the MIT license.
  */
 import {Smooth} from './smooth-0.1.7.js';
+import {graphUtils} from './graph_utils.js';
+import {jsContextFactory} from './js_context.js';
 import {
     getNearestValue,
     roundToNearestMultiple,
@@ -116,7 +118,7 @@ commands['init'].params =
     pad: {name: "padding", numValues: 1, isAttribute: false},
     fss: {name: "font-and-stroke-scale", numValues: 1, isAttribute: false}
 };
-commands['init'].func = function(cg, args)
+commands['init'].createInstance = function(cg, args)
 {
     if (args.hasOwnProperty('r')) cg.graphRange.update(args['r']);
 
@@ -209,12 +211,24 @@ commands['init'].func = function(cg, args)
      * compute the scale properly when using uniform scaling.
      */
     cg.initRootElements(attributes, scale);
+
+    return {
+        name: 'init',
+        scriptInterface:
+        {
+            get w() { return attributes['width']; },
+            get h() { return attributes['height']; },
+            get fss() { return cg.getScale(); },
+        },
+        render: ()=>{}
+    };
 };
 
 
 commands['point'] = {};
 commands['point'].params =
 {
+    id: {name: "name", numValues: 1, isAttribute: false},
     p: {name: "point", numValues: 2, isAttribute: false},
     r: {name: "r", numValues: 1, isAttribute: true},
     sc: {name: "stroke", numValues: 1, isAttribute: true},
@@ -225,16 +239,22 @@ commands['point'].params =
     fo: {name: "fill-opacity", numValues: 1, isAttribute: true},
     o: {name: "opacity", numValues: 1, isAttribute: true}
 };
-commands['point'].func = function(cg, args)
+commands['point'].createInstance = function(cg, args)
 {
     var newElement = createSvgElement('circle', true);
     var attributes = extractAttributesFromArgs(args, this.params);
 
-    if (args.hasOwnProperty('p') && isFloat(args['p']))
+    let x = 0;
+    let y = 0;
+
+    if (args.hasOwnProperty('p') && parseFloats(args['p']))
     {
-        attributes['cx'] = args['p'][0];
-        attributes['cy'] = args['p'][1];
+        x = args['p'][0];
+        y = args['p'][1];
     }
+
+    attributes['cx'] = x;
+    attributes['cy'] = y;
 
     if (!attributes.hasOwnProperty('stroke-width')) attributes['stroke-width'] = 0;
     if (!attributes.hasOwnProperty('fill')) attributes['fill'] = "#000";
@@ -248,13 +268,21 @@ commands['point'].func = function(cg, args)
     }
 
     setAttributes(newElement, attributes);
-    cg.appendElement(newElement);
+
+    let point = new graphUtils.Point(x, y);
+
+    return {
+        name: args.hasOwnProperty('id') ? args['id'][0] : null,
+        scriptInterface: { get p() { return point; } },
+        render: () => { cg.appendElement(newElement); }
+    };
 };
 
 
 commands['points'] = {};
 commands['points'].params =
 {
+    id: {name: "name", numValues: 1, isAttribute: false},
     p: {name: "points", numValues: 1, isAttribute: false},
     r: {name: "r", numValues: 1, isAttribute: true},
     sc: {name: "stroke", numValues: 1, isAttribute: true},
@@ -265,7 +293,7 @@ commands['points'].params =
     fo: {name: "fill-opacity", numValues: 1, isAttribute: true},
     o: {name: "opacity", numValues: 1, isAttribute: true}
 };
-commands['points'].func = function(cg, args)
+commands['points'].createInstance = function(cg, args)
 {
     var attributes = extractAttributesFromArgs(args, this.params);
 
@@ -279,6 +307,9 @@ commands['points'].func = function(cg, args)
         if (!Number.isNaN(radius)) radius *= cg.getScale();
         attributes['r'] = radius;
     }
+
+    let points = [];
+    let elements = [];
 
     if (args.hasOwnProperty('p'))
     {
@@ -291,21 +322,31 @@ commands['points'].func = function(cg, args)
         {
             if (!Number.isNaN(values[i]) && !Number.isNaN(values[i+1]))
             {
-                attributes['cx'] = values[i];
-                attributes['cy'] = values[i+1];
+                attributes['cx'] = parseFloat(values[i]);
+                attributes['cy'] = parseFloat(values[i+1]);
+
+                points.push(new graphUtils.Point(attributes['cx'], attributes['cy']));
 
                 let newElement = createSvgElement('circle', true);
                 setAttributes(newElement, attributes);
-                cg.appendElement(newElement);
+
+                elements.push(newElement);
             }
         }
     }
+
+    return {
+        name: args.hasOwnProperty('id') ? args['id'][0] : null,
+        scriptInterface: { get p() { return points; } },
+        render: () => { elements.forEach(e => cg.appendElement(e)); }
+    };
 };
 
 
 commands['circle'] = {};
 commands['circle'].params =
 {
+    id: {name: "name", numValues: 1, isAttribute: false},
     c: {name: "center-point", numValues: 2, isAttribute: false},
     r: {name: "r", numValues: 1, isAttribute: true},
     sc: {name: "stroke", numValues: 1, isAttribute: true},
@@ -316,25 +357,39 @@ commands['circle'].params =
     fo: {name: "fill-opacity", numValues: 1, isAttribute: true},
     o: {name: "opacity", numValues: 1, isAttribute: true}
 };
-commands['circle'].func = function(cg, args)
+commands['circle'].createInstance = function(cg, args)
 {
     var newElement = createSvgElement('circle', true);
     var attributes = extractAttributesFromArgs(args, this.params);
 
-    if (args.hasOwnProperty('c') && isFloat(args['c']))
+    let cx = 0;
+    let cy = 0;
+
+    if (args.hasOwnProperty('c') && parseFloats(args['c']))
     {
-        attributes['cx'] = args['c'][0];
-        attributes['cy'] = args['c'][1];
+        cx = args['c'][0];
+        cy = args['c'][1];
     }
 
+    attributes['cx'] = cx;
+    attributes['cy'] = cy;
+
     setAttributes(newElement, attributes);
-    cg.appendElement(newElement);
+
+    let centerPoint = new graphUtils.Point(cx, cy);
+
+    return {
+        name: args.hasOwnProperty('id') ? args['id'][0] : null,
+        scriptInterface: { get c() { return centerPoint; } },
+        render: () => { cg.appendElement(newElement); }
+    };
 };
 
 
 commands['ellipse'] = {};
 commands['ellipse'].params =
 {
+    id: {name: "name", numValues: 1, isAttribute: false},
     c: {name: "center-point", numValues: 2, isAttribute: false},
     rx: {name: "rx", numValues: 1, isAttribute: true},
     ry: {name: "ry", numValues: 1, isAttribute: true},
@@ -348,23 +403,27 @@ commands['ellipse'].params =
     fo: {name: "fill-opacity", numValues: 1, isAttribute: true},
     o: {name: "opacity", numValues: 1, isAttribute: true}
 };
-commands['ellipse'].func = function(cg, args)
+commands['ellipse'].createInstance = function(cg, args)
 {
     var newElement = createSvgElement('ellipse', true);
     var attributes = extractAttributesFromArgs(args, this.params);
 
-    if (args.hasOwnProperty('c') && isFloat(args['c']))
+    let cx = 0;
+    let cy = 0;
+
+    if (args.hasOwnProperty('c') && parseFloats(args['c']))
     {
-        attributes['cx'] = args['c'][0];
-        attributes['cy'] = args['c'][1];
+        cx = args['c'][0];
+        cy = args['c'][1];
     }
 
     if (args.hasOwnProperty('p') && parseFloats(args['p']))
     {
         let [x1, y1, x2, y2] = args['p'];
 
-        attributes['cx'] = ((x2 - x1) / 2.0) + x1;
-        attributes['cy'] = ((y2 - y1) / 2.0) + y1;
+        cx = ((x2 - x1) / 2.0) + x1;
+        cy = ((y2 - y1) / 2.0) + y1;
+
         attributes['rx'] = Math.abs(x2 - x1) / 2.0;
         attributes['ry'] = Math.abs(y2 - y1) / 2.0;
     }
@@ -376,20 +435,32 @@ commands['ellipse'].func = function(cg, args)
         width = Math.max(width, 0);
         height = Math.max(height, 0);
 
-        attributes['cx'] = x + (width / 2);
-        attributes['cy'] = y + (height / 2);
+        cx = x + (width / 2);
+        cy = y + (height / 2);
+
         attributes['rx'] = width / 2;
         attributes['ry'] = height / 2;
     }
 
+    attributes.cx = cx;
+    attributes.cy = cy;
+
     setAttributes(newElement, attributes);
-    cg.appendElement(newElement);
+
+    let center = new graphUtils.Point(cx, cy);
+
+    return {
+        name: args.hasOwnProperty('id') ? args['id'][0] : null,
+        scriptInterface: { get c() { return center; } },
+        render: () => { cg.appendElement(newElement); }
+    };
 };
 
 
 commands['line'] = {};
 commands['line'].params =
 {
+    id: {name: "name", numValues: 1, isAttribute: false},
     p: {name: "points", numValues: 4, isAttribute: false},
     p1: {name: "point1", numValues: 2, isAttribute: false},
     p2: {name: "point2", numValues: 2, isAttribute: false},
@@ -401,30 +472,40 @@ commands['line'].params =
     me: {name: "marker-end", numValues: 1, isAttribute: false},
     o: {name: "opacity", numValues: 1, isAttribute: true}
 };
-commands['line'].func = function(cg, args)
+commands['line'].createInstance = function(cg, args)
 {
     var newElement = createSvgElement('line', true);
     var attributes = extractAttributesFromArgs(args, this.params);
 
-    if (args.hasOwnProperty('p') && isFloat(args['p']))
+    let x1 = 0;
+    let y1 = 0;
+    let x2 = 1;
+    let y2 = 1;
+
+    if (args.hasOwnProperty('p') && parseFloats(args['p']))
     {
-        attributes['x1'] = args['p'][0];
-        attributes['y1'] = args['p'][1];
-        attributes['x2'] = args['p'][2];
-        attributes['y2'] = args['p'][3];
+        x1 = args['p'][0];
+        y1 = args['p'][1];
+        x2 = args['p'][2];
+        y2 = args['p'][3];
     }
 
-    if (args.hasOwnProperty('p1') && isFloat(args['p1']))
+    if (args.hasOwnProperty('p1') && parseFloats(args['p1']))
     {
-        attributes['x1'] = args['p1'][0];
-        attributes['y1'] = args['p1'][1];
+        x1 = args['p1'][0];
+        y1 = args['p1'][1];
     }
 
-    if (args.hasOwnProperty('p2') && isFloat(args['p2']))
+    if (args.hasOwnProperty('p2') && parseFloats(args['p2']))
     {
-        attributes['x2'] = args['p2'][0];
-        attributes['y2'] = args['p2'][1];
+        x2 = args['p2'][0];
+        y2 = args['p2'][1];
     }
+
+    attributes['x1'] = x1;
+    attributes['y1'] = y1;
+    attributes['x2'] = x2;
+    attributes['y2'] = y2;
 
     if (args.hasOwnProperty('me') && (args['me'][0] == 'arrow'))
     {
@@ -437,13 +518,26 @@ commands['line'].func = function(cg, args)
     }
 
     setAttributes(newElement, attributes);
-    cg.appendElement(newElement);
+
+    let p1 = new graphUtils.Point(x1, y1);
+    let p2 = new graphUtils.Point(x2, y2);
+
+    return {
+        name: args.hasOwnProperty('id') ? args['id'][0] : null,
+        scriptInterface:
+        {
+            get p1() { return p1; },
+            get p2() { return p2; },
+        },
+        render: () => { cg.appendElement(newElement); }
+    };
 };
 
 
 commands['text'] = {};
 commands['text'].params =
 {
+    id: {name: "name", numValues: 1, isAttribute: false},
     p: {name: "point", numValues: 2, isAttribute: false},
     f: {name: "fill", numValues: 1, isAttribute: true},
     fs: {name: "font-size", numValues: 1, isAttribute: true},
@@ -452,7 +546,7 @@ commands['text'].params =
     t: {name: "text", numValues: 1, isAttribute: false},
     o: {name: "opacity", numValues: 1, isAttribute: true}
 };
-commands['text'].func = function(cg, args)
+commands['text'].createInstance = function(cg, args)
 {
     var text = args.hasOwnProperty('t') ? args['t'][0] : "";
 
@@ -480,7 +574,11 @@ commands['text'].func = function(cg, args)
     attributes['y'] = 0;
     setAttributes(newElement, attributes);
 
-    cg.appendElement(newElement);
+    return {
+        name: args.hasOwnProperty('id') ? args['id'][0] : null,
+        scriptInterface: { get t() { return text; } },
+        render: () => { cg.appendElement(newElement); }
+    };
 };
 
 
@@ -499,7 +597,7 @@ commands['g'].params =
     xf: {name: "transform", numValues: 1, isAttribute: false},
     id: {name: "id", numValues: 1, isAttribute: false}
 };
-commands['g'].func = function(cg, args)
+commands['g'].createInstance = function(cg, args)
 {
     var newElement = createSvgElement('g', {});
     var attributes = extractAttributesFromArgs(args, this.params);
@@ -519,15 +617,24 @@ commands['g'].func = function(cg, args)
     }
 
     setAttributes(newElement, attributes);
-    cg.appendElement(newElement, true);
+
+    return {
+        name: null,
+        scriptInterface: null,
+        render: () => { cg.appendElement(newElement, true); }
+    };
 };
 
 
 commands['endg'] = {};
 commands['endg'].params = {};
-commands['endg'].func = function(cg, args)
+commands['endg'].createInstance = function(cg, args)
 {
-    cg.popParentElement();
+    return {
+        name: null,
+        scriptInterface: null,
+        render: () => { cg.popParentElement(); }
+    };
 };
 
 
@@ -553,7 +660,7 @@ commands['clone'].params =
     o: {name: "opacity", numValues: 1, isAttribute: true},
     xf: {name: "transform", numValues: 1, isAttribute: false}
 };
-commands['clone'].func = function(cg, args)
+commands['clone'].createInstance = function(cg, args)
 {
     var newElement = createSvgElement('use', {});
     var attributes = extractAttributesFromArgs(args, this.params);
@@ -573,7 +680,12 @@ commands['clone'].func = function(cg, args)
     }
 
     setAttributes(newElement, attributes);
-    cg.appendElement(newElement, true);
+
+    return {
+        name: null,
+        scriptInterface: null,
+        render: () => { cg.appendElement(newElement, true); }
+    };
 };
 
 
@@ -591,7 +703,7 @@ commands['path'].params =
     fo: {name: "fill-opacity", numValues: 1, isAttribute: true},
     o: {name: "opacity", numValues: 1, isAttribute: true}
 };
-commands['path'].func = function(cg, args)
+commands['path'].createInstance = function(cg, args)
 {
     var newElement = createSvgElement('path', true);
     var attributes = extractAttributesFromArgs(args, this.params);
@@ -607,13 +719,19 @@ commands['path'].func = function(cg, args)
     }
 
     setAttributes(newElement, attributes);
-    cg.appendElement(newElement);
+
+    return {
+        name: null,
+        scriptInterface: null,
+        render: () => { cg.appendElement(newElement); }
+    };
 };
 
 
 commands['rect'] = {};
 commands['rect'].params =
 {
+    id: {name: "name", numValues: 1, isAttribute: false},
     b: {name: "bounds", numValues: 4, isAttribute: false},
     x: {name: "x", numValues: 1, isAttribute: true},
     y: {name: "y", numValues: 1, isAttribute: true},
@@ -630,18 +748,28 @@ commands['rect'].params =
     fo: {name: "fill-opacity", numValues: 1, isAttribute: true},
     o: {name: "opacity", numValues: 1, isAttribute: true}
 };
-commands['rect'].func = function(cg, args)
+commands['rect'].createInstance = function(cg, args)
 {
     var newElement = createSvgElement('rect', true);
     var attributes = extractAttributesFromArgs(args, this.params);
 
-    if (args.hasOwnProperty('b') && isFloat(args['b']))
+    let x = 0;
+    let y = 0;
+    let width = 10;
+    let height = 10;
+
+    if (args.hasOwnProperty('b') && parseFloats(args['b']))
     {
-        attributes['x'] = args['b'][0];
-        attributes['y'] = args['b'][1];
-        attributes['width'] = args['b'][2];
-        attributes['height'] = args['b'][3];
+        x = args['b'][0];
+        y = args['b'][1];
+        width = args['b'][2];
+        height = args['b'][3];
     }
+
+    attributes['x'] = x;
+    attributes['y'] = y;
+    attributes['width'] = width;
+    attributes['height'] = height;
 
     if (args.hasOwnProperty('cr'))
     {
@@ -650,13 +778,21 @@ commands['rect'].func = function(cg, args)
     }
 
     setAttributes(newElement, attributes);
-    cg.appendElement(newElement);
+
+    let bounds = new graphUtils.Bounds(x, y, width, height);
+
+    return {
+        name: args.hasOwnProperty('id') ? args['id'][0] : null,
+        scriptInterface: { get b() { return bounds; } },
+        render: () => { cg.appendElement(newElement); }
+    };
 };
 
 
 commands['arrow'] = {};
 commands['arrow'].params =
 {
+    id: {name: "name", numValues: 1, isAttribute: false},
     p: {name: "points", numValues: 4, isAttribute: false},
     p1: {name: "point1", numValues: 2, isAttribute: false},
     p2: {name: "point2", numValues: 2, isAttribute: false},
@@ -667,31 +803,42 @@ commands['arrow'].params =
     ms: {name: "marker-start", numValues: 1, isAttribute: false},
     o: {name: "opacity", numValues: 1, isAttribute: true}
 };
-commands['arrow'].func = function(cg, args)
+commands['arrow'].createInstance = function(cg, args)
 {
     var newElement = createSvgElement('line', true);
     var attributes = extractAttributesFromArgs(args, this.params);
 
-    if (args.hasOwnProperty('p') && isFloat(args['p']))
-    {
-        attributes['x1'] = args['p'][0];
-        attributes['y1'] = args['p'][1];
+    let x1 = 0;
+    let y1 = 0;
+    let x2 = 1;
+    let y2 = 1;
 
-        attributes['x2'] = args['p'][2];
-        attributes['y2'] = args['p'][3];
+    if (args.hasOwnProperty('p') && parseFloats(args['p']))
+    {
+        x1 = args['p'][0];
+        y1 = args['p'][1];
+
+        x2 = args['p'][2];
+        y2 = args['p'][3];
     }
 
-    if (args.hasOwnProperty('p1') && isFloat(args['p1']))
+    if (args.hasOwnProperty('p1') && parseFloats(args['p1']))
     {
-        attributes['x1'] = args['p1'][0];
-        attributes['y1'] = args['p1'][1];
+        x1 = args['p1'][0];
+        y1 = args['p1'][1];
     }
 
-    if (args.hasOwnProperty('p2') && isFloat(args['p2']))
+    if (args.hasOwnProperty('p2') && parseFloats(args['p2']))
     {
-        attributes['x2'] = args['p2'][0];
-        attributes['y2'] = args['p2'][1];
+        x2 = args['p2'][0];
+        y2 = args['p2'][1];
     }
+
+    attributes.x1 = x1;
+    attributes.y1 = y1;
+
+    attributes.x2 = x2;
+    attributes.y2 = y2;
 
     if (args.hasOwnProperty('ms') && (args['ms'][0] == 'arrow'))
     {
@@ -701,7 +848,19 @@ commands['arrow'].func = function(cg, args)
     attributes['marker-end'] = `url(#${cg.arrowHeadEndMarkerId})`;
 
     setAttributes(newElement, attributes);
-    cg.appendElement(newElement);
+
+    let p1 = new graphUtils.Point(x1, y1);
+    let p2 = new graphUtils.Point(x2, y2);
+
+    return {
+        name: args.hasOwnProperty('id') ? args['id'][0] : null,
+        scriptInterface:
+        {
+            get p1() { return p1; },
+            get p2() { return p2; },
+        },
+        render: () => { cg.appendElement(newElement); }
+    };
 };
 
 
@@ -718,15 +877,16 @@ commands['func'].params =
     fo: {name: "fill-opacity", numValues: 1, isAttribute: true},
     o: {name: "opacity", numValues: 1, isAttribute: true}
 };
-commands['func'].func = function(cg, args)
+commands['func'].createInstance = function(cg, args)
 {
-    var attributes = extractAttributesFromArgs(args, this.params);
+    let newElement = null;
+    let attributes = extractAttributesFromArgs(args, this.params);
 
     if (args.hasOwnProperty('fn') &&
         args.hasOwnProperty('r') &&
         parseFloats(args['r']))
     {
-        let newElement = createSvgElement('path', true);
+        newElement = createSvgElement('path', true);
 
         let funcString = args['fn'][0];
 
@@ -734,10 +894,10 @@ commands['func'].func = function(cg, args)
         let xIncrement = (xEnd - xStart) / xDivisions;
 
         let code = `
-            var result = "";
-            var func = ${funcString};
-            var x = ${xStart};
-            for (var i=0; i < ${xDivisions}; i++)
+            let result = "";
+            let func = ${funcString};
+            let x = ${xStart};
+            for (let i=0; i < ${xDivisions}; i++)
             {
                 result += "L " +
                            (M.round(x * 1000) / 1000) + " " +
@@ -748,19 +908,27 @@ commands['func'].func = function(cg, args)
             return result;
         `;
 
+        let jsContext = jsContextFactory.newContext();
+
         let d = jsContext.execute(code);
         d = d.replace("L", "M");
         attributes['d'] = d;
 
         setAttributes(newElement, attributes);
-        cg.appendElement(newElement);
     }
+
+    return {
+        name: null,
+        scriptInterface: null,
+        render: () => { if (newElement) cg.appendElement(newElement); }
+    };
 };
 
 
 commands['triangle'] = {};
 commands['triangle'].params =
 {
+    id: {name: "name", numValues: 1, isAttribute: false},
     p: {name: "points", numValues: 6, isAttribute: false},
     sc: {name: "stroke", numValues: 1, isAttribute: true},
     sw: {name: "stroke-width", numValues: 1, isAttribute: true},
@@ -776,47 +944,64 @@ commands['triangle'].params =
     a2s: {name: "angle2-scale", numValues: 1, isAttribute: false},
     a3s: {name: "angle3-scale", numValues: 1, isAttribute: false}
 };
-commands['triangle'].func = function(cg, args)
+commands['triangle'].createInstance = function(cg, args)
 {
-    var attributes = extractAttributesFromArgs(args, this.params);
+    let newElement = createSvgElement('path', true);
+    let attributes = extractAttributesFromArgs(args, this.params);
+
+    let p1 = [0, 0];
+    let p2 = [1, 0];
+    let p3 = [1, 1];
 
     if (args.hasOwnProperty('p') && parseFloats(args['p']))
     {
-        var newElement = createSvgElement('path', true);
-
-        var d = "";
-        d += `M ${args['p'][0]} ${args['p'][1]} `;
-        d += `L ${args['p'][2]} ${args['p'][3]} `;
-        d += `L ${args['p'][4]} ${args['p'][5]} Z`;
-
-        attributes['d'] = d;
-
-        setAttributes(newElement, attributes);
-        cg.appendElement(newElement);
-
-
-        var p1 = [args['p'][0], args['p'][1]];
-        var p2 = [args['p'][2], args['p'][3]];
-        var p3 = [args['p'][4], args['p'][5]];
-
-        if (args.hasOwnProperty('a1'))
-        {
-            var scale = getFloatValueFromArgs(args, 'a1s', 1.0);
-            cg.drawAngleMarkers([p3, p1, p2], args['a1'][0], scale);
-        }
-
-        if (args.hasOwnProperty('a2'))
-        {
-            var scale = getFloatValueFromArgs(args, 'a2s', 1.0);
-            cg.drawAngleMarkers([p1, p2, p3], args['a2'][0], scale);
-        }
-
-        if (args.hasOwnProperty('a3'))
-        {
-            var scale = getFloatValueFromArgs(args, 'a3s', 1.0);
-            cg.drawAngleMarkers([p2, p3, p1], args['a3'][0], scale);
-        }
+        p1 = [args['p'][0], args['p'][1]];
+        p2 = [args['p'][2], args['p'][3]];
+        p3 = [args['p'][4], args['p'][5]];
     }
+
+    let d = "";
+    d += `M ${p1[0]} ${p1[1]} `;
+    d += `L ${p2[0]} ${p2[1]} `;
+    d += `L ${p3[0]} ${p3[1]} Z`;
+
+    attributes['d'] = d;
+    setAttributes(newElement, attributes);
+
+    let point1 = new graphUtils.Point(p1[0], p1[1]);
+    let point2 = new graphUtils.Point(p2[0], p2[1]);
+    let point3 = new graphUtils.Point(p3[0], p3[1]);
+
+    return {
+        name: args.hasOwnProperty('id') ? args['id'][0] : null,
+        scriptInterface:
+        {
+            get p1() { return point1; },
+            get p2() { return point2; },
+            get p3() { return point3; },
+        },
+        render: () => {
+            if (args.hasOwnProperty('a1'))
+            {
+                var scale = getFloatValueFromArgs(args, 'a1s', 1.0);
+                cg.drawAngleMarkers([p3, p1, p2], args['a1'][0], scale);
+            }
+
+            if (args.hasOwnProperty('a2'))
+            {
+                var scale = getFloatValueFromArgs(args, 'a2s', 1.0);
+                cg.drawAngleMarkers([p1, p2, p3], args['a2'][0], scale);
+            }
+
+            if (args.hasOwnProperty('a3'))
+            {
+                var scale = getFloatValueFromArgs(args, 'a3s', 1.0);
+                cg.drawAngleMarkers([p2, p3, p1], args['a3'][0], scale);
+            }
+
+            cg.appendElement(newElement);
+        }
+    };
 };
 
 
@@ -831,7 +1016,7 @@ commands['mtext'].params =
     ff: {name: "font-family", numValues: 1, isAttribute: false},
     sw: {name: "stroke-width", numValues: 1, isAttribute: true}
 };
-commands['mtext'].func = function(cg, args, options)
+commands['mtext'].createInstance = function(cg, args, options)
 {
     if (!args.hasOwnProperty('t') ||
         !args.hasOwnProperty('b') ||
@@ -875,17 +1060,24 @@ commands['mtext'].func = function(cg, args, options)
 
     foreignObjectElement.appendChild(divElement);
 
-    if (args.hasOwnProperty('or') && (args['or'][0] == "1"))
-    {
-        var gElement = createSvgElement('g', {transform: `translate(0, ${height})`});
+    return {
+        name: null,
+        scriptInterface: null,
+        render: () => {
+            if (args.hasOwnProperty('or') && (args['or'][0] == "1"))
+            {
+                let xfString = 'translate(0,' + height + ')';
+                let gElement = createSvgElement('g', {transform: xfString});
 
-        gElement.appendChild(foreignObjectElement);
-        cg.appendElement(gElement);
-    }
-    else
-    {
-        cg.appendElement(foreignObjectElement);
-    }
+                gElement.appendChild(foreignObjectElement);
+                cg.appendElement(gElement);
+            }
+            else
+            {
+                cg.appendElement(foreignObjectElement);
+            }
+        }
+    };
 };
 
 
@@ -901,7 +1093,7 @@ commands['setblob'].params =
     fo: {name: "fill-opacity", numValues: 1, isAttribute: true},
     o: {name: "opacity", numValues: 1, isAttribute: true}
 };
-commands['setblob'].func = function(cg, args)
+commands['setblob'].createInstance = function(cg, args)
 {
     if (!args.hasOwnProperty('b') || !parseFloats(args['b'])) return;
 
@@ -948,7 +1140,11 @@ commands['setblob'].func = function(cg, args)
     let gElement = createSvgElement('g', {transform: `translate(${x},${y})`});
     gElement.appendChild(pathElement);
 
-    cg.appendElement(gElement);
+    return {
+        name: null,
+        scriptInterface: null,
+        render: () => { cg.appendElement(gElement); }
+    };
 };
 
 
@@ -963,7 +1159,7 @@ commands['grid'].params =
     sda: {name: "stroke-dasharray", numValues: 1, isAttribute: true},
     o: {name: "opacity", numValues: 1, isAttribute: true}
 };
-commands['grid'].func = function(cg, args)
+commands['grid'].createInstance = function(cg, args)
 {
     var xMin = cg.graphRange.xmin;
     var yMin = cg.graphRange.ymin;
@@ -1019,7 +1215,11 @@ commands['grid'].func = function(cg, args)
 
     setAttributes(pathElement, attributes);
 
-    cg.appendElement(pathElement);
+    return {
+        name: null,
+        scriptInterface: null,
+        render: () => { cg.appendElement(pathElement); }
+    };
 };
 
 
@@ -1033,7 +1233,7 @@ commands['axis'].params =
     sda: {name: "stroke-dasharray", numValues: 1, isAttribute: true},
     o: {name: "opacity", numValues: 1, isAttribute: true}
 };
-commands['axis'].func = function(cg, args)
+commands['axis'].createInstance = function(cg, args)
 {
     var xMin = cg.graphRange.xmin;
     var yMin = cg.graphRange.ymin;
@@ -1052,18 +1252,24 @@ commands['axis'].func = function(cg, args)
     if (!args.hasOwnProperty('sw')) attributes['stroke-width'] = "1";
     if (!args.hasOwnProperty('so')) attributes['stroke-opacity'] = "0.6";
 
-    var pathElement = createSvgElement('path', true);
+    let xPathElement = createSvgElement('path', true);
 
     attributes['d'] = `M ${xMin} 0 H ${xMax}`;
-    setAttributes(pathElement, attributes);
-    cg.appendElement(pathElement);
+    setAttributes(xPathElement, attributes);
 
-
-    pathElement = createSvgElement('path', true);
+    let yPathElement = createSvgElement('path', true);
 
     attributes['d'] = `M 0 ${yMin} V ${yMax}`;
-    setAttributes(pathElement, attributes);
-    cg.appendElement(pathElement);
+    setAttributes(yPathElement, attributes);
+
+    return {
+        name: null,
+        scriptInterface: null,
+        render: () => {
+            cg.appendElement(xPathElement);
+            cg.appendElement(yPathElement);
+        }
+    };
 };
 
 
@@ -1077,7 +1283,7 @@ commands['brace'].params =
     sda: {name: "stroke-dasharray", numValues: 1, isAttribute: true},
     o: {name: "opacity", numValues: 1, isAttribute: true}
 };
-commands['brace'].func = function(cg, args)
+commands['brace'].createInstance = function(cg, args)
 {
     /*
      * The points argument is a list of three points. The first
@@ -1178,10 +1384,15 @@ commands['brace'].func = function(cg, args)
     pathString += `L ${p8.x} ${p8.y} Q ${p2MidPoint.x} ${p2MidPoint.y} ${p2.x} ${p2.y}`;
 
     var pathElement = createSvgElement('path', true);
-    attributes = extractAttributesFromArgs(args, this.params);
+    let attributes = extractAttributesFromArgs(args, this.params);
     attributes['d'] = pathString;
     setAttributes(pathElement, attributes);
-    cg.appendElement(pathElement);
+
+    return {
+        name: null,
+        scriptInterface: null,
+        render: () => { cg.appendElement(pathElement); }
+    };
 };
 
 
@@ -1192,7 +1403,7 @@ commands['angle'].params =
     a: {name: "angle-type", numValues: 1, isAttribute: false},
     as: {name: "angle-scale", numValues: 1, isAttribute: false},
 };
-commands['angle'].func = function(cg, args)
+commands['angle'].createInstance = function(cg, args)
 {
     if (!args.hasOwnProperty('p') || !parseFloats(args['p']) ||
         !args.hasOwnProperty('a')) return;
@@ -1202,7 +1413,12 @@ commands['angle'].func = function(cg, args)
     var p3 = [args['p'][4], args['p'][5]];
 
     var scale = getFloatValueFromArgs(args, 'as', 1.0);
-    cg.drawAngleMarkers([p1, p2, p3], args['a'][0], scale);
+
+    return {
+        name: null,
+        scriptInterface: null,
+        render: () => { cg.drawAngleMarkers([p1, p2, p3], args['a'][0], scale); }
+    };
 };
 
 
@@ -1221,9 +1437,12 @@ commands['curve'].params =
     fo: {name: "fill-opacity", numValues: 1, isAttribute: true},
     o: {name: "opacity", numValues: 1, isAttribute: true}
 };
-commands['curve'].func = function(cg, args)
+commands['curve'].createInstance = function(cg, args)
 {
+    let newElement = null;
+
     let showPoints = false;
+    let pointElements = [];
 
     if (!args.hasOwnProperty('p')) return;
 
@@ -1273,7 +1492,7 @@ commands['curve'].func = function(cg, args)
         point = points[points.length - 1];
         d += `L ${point[0]} ${point[1]}`;
 
-        var newElement = createSvgElement('path', true);
+        newElement = createSvgElement('path', true);
 
         var attributes = extractAttributesFromArgs(args, this.params);
         attributes['d'] = d;
@@ -1289,8 +1508,6 @@ commands['curve'].func = function(cg, args)
         }
 
         setAttributes(newElement, attributes);
-        cg.appendElement(newElement);
-
 
         if (showPoints)
         {
@@ -1309,10 +1526,22 @@ commands['curve'].func = function(cg, args)
                 attributes.cy = points[i][1];
 
                 let pointElement = createSvgElement('circle', attributes);
-                cg.appendElement(pointElement);
+                pointElements.push(pointElement);
             }
         }
     }
+
+    return {
+        name: null,
+        scriptInterface: null,
+        render: () => {
+            if (newElement)
+            {
+                cg.appendElement(newElement);
+                pointElements.forEach(e => cg.appendElement(e));
+            }
+        }
+    };
 };
 
 
@@ -1327,11 +1556,13 @@ commands['image'].params =
     url: {name: "xlink:href", numValues: 1, isAttribute: false},
     o: {name: "opacity", numValues: 1, isAttribute: true}
 };
-commands['image'].func = function(cg, args)
+commands['image'].createInstance = function(cg, args)
 {
+    let newElement = null;
+
     if (args.hasOwnProperty('url'))
     {
-        var newElement = createSvgElement('image', true);
+        newElement = createSvgElement('image', true);
         var attributes = extractAttributesFromArgs(args, this.params);
 
         var x = 0;
@@ -1358,11 +1589,16 @@ commands['image'].func = function(cg, args)
         attributes['x'] = 0;
         attributes['y'] = 0;
         setAttributes(newElement, attributes);
-
-        cg.appendElement(newElement);
     }
+
+    return {
+        name: null,
+        scriptInterface: null,
+        render: () => { if (newElement) cg.appendElement(newElement); }
+    };
 };
 
 commands['img'] = {};
 commands['img'].params = commands['image'].params;
-commands['img'].func = commands['image'].func;
+commands['img'].createInstance = commands['image'].createInstance;
+

@@ -683,7 +683,8 @@ const commandProcessor = (function() {
     function processCommand(it, cg)
     {
         let data = it.getData();
-        var command = {name: "", args: []};
+        let commandInstance = null;
+        let command = {name: "", args: []};
 
         while (data.type != parser.TYPE_COMMAND_BOUNDARY)
         {
@@ -734,25 +735,29 @@ const commandProcessor = (function() {
                 {
                     if (command.name != "init")
                     {
-                        commands['init'].func(cg, {}, options);
+                        commands['init'].createInstance(cg, {}, options);
                     }
 
-                    commands[command.name].func(cg, command.args, options);
+                    commandInstance = commands[command.name].createInstance(cg, command.args, options);
                     numExecutedCommands++;
                 }
                 else if (command.name != "init")
                 {
-                    commands[command.name].func(cg, command.args, options);
+                    commandInstance = commands[command.name].createInstance(cg, command.args, options);
                     numExecutedCommands++;
                 }
             }
         }
+
+        return commandInstance;
     }
 
 
     function processInput(input, cg)
     {
         let jsContext = jsContextFactory.newContext();
+
+        let commandInstances = [];
 
         let list = parser.parse(input);
         let preprocessIt = list.getIterator();
@@ -784,11 +789,23 @@ const commandProcessor = (function() {
                 else preprocessIt.advance();
             }
 
-            processCommand(processIt, cg);
+            let commandInstance = processCommand(processIt, cg);
+            if (commandInstance)
+            {
+                commandInstances.push(commandInstance);
+
+                if (commandInstance.name && commandInstance.scriptInterface)
+                {
+                    jsContext.addGlobal(commandInstance.name,
+                                        commandInstance.scriptInterface);
+                }
+            }
 
             processIt.advance();
             preprocessIt.advance();
         }
+
+        commandInstances.forEach(instance => instance.render());
     }
 
     return {
