@@ -3,12 +3,8 @@
  */
 import {commands} from './command_lib.js';
 import {parser} from './parser.js';
-import {
-    roundToNearestMultiple,
-    parseFloats, 
-    createSvgElement,
-    setAttributes
-} from './utils.js';
+import {jsContextFactory} from './js_context.js';
+import {roundToNearestMultiple, parseFloats, createSvgElement, setAttributes} from './utils.js';
 
 
 const majorVersion = 1;
@@ -573,53 +569,6 @@ function CGInstance()
 };
 
 
-function executeJS(code)
-{
-    var result = "";
-
-    if (/^\s*=/.test(code))
-    {
-        code = code.replace("=", "return ");
-    }
-
-    code = `'use strict';${code}`;
-
-    try
-    {
-        let returnContext = {r: ''};
-
-        let func = new Function('_', code);
-        let funcReturnValue = func(returnContext);
-
-        if (returnContext.r !== '') funcReturnValue = returnContext.r;
-
-        switch (typeof funcReturnValue)
-        {
-            case 'string':
-            case 'number':
-                result = funcReturnValue.toString();
-                break;
-
-            case 'object':
-                switch (funcReturnValue.constructor.name)
-                {
-                    case 'Point':
-                    case 'Bounds':
-                        result = funcReturnValue.toString();
-                        break;
-                }
-                break;
-        }
-    }
-    catch(error)
-    {
-        logError(error);
-    }
-
-    return result;
-}
-
-
 const commandProcessor = (function() {
 
     var previousCommand = null;
@@ -687,7 +636,7 @@ const commandProcessor = (function() {
     }
 
 
-    function collapseGroup(it)
+    function collapseGroup(it, jsContext)
     {
         let groupIt = it.clone();
         let origData = groupIt.getData();
@@ -703,7 +652,7 @@ const commandProcessor = (function() {
             {
                 if (data.type == parser.TYPE_GROUP_SCRIPT)
                 {
-                    let scriptResult = executeJS(data.value);
+                    let scriptResult = jsContext.execute(data.value);
                     origData.value += scriptResult;
                     groupIt.remove();
                 }
@@ -718,7 +667,7 @@ const commandProcessor = (function() {
                 }
                 else if (data.type == parser.TYPE_GROUP_SCRIPT)
                 {
-                    let scriptResult = executeJS(data.value);
+                    let scriptResult = jsContext.execute(data.value);
                     origData.value += scriptResult;
                     groupIt.remove();
                 }
@@ -803,6 +752,8 @@ const commandProcessor = (function() {
 
     function processInput(input, cg)
     {
+        let jsContext = jsContextFactory.newContext();
+
         let list = parser.parse(input);
         let preprocessIt = list.getIterator();
         let processIt = list.getIterator();
@@ -816,14 +767,14 @@ const commandProcessor = (function() {
                 if (type == parser.TYPE_COMMAND_BOUNDARY) break;
                 else if (type == parser.TYPE_GROUP)
                 {
-                    collapseGroup(preprocessIt);
+                    collapseGroup(preprocessIt, jsContext);
                     preprocessIt.advance();
                 }
                 else if (type == parser.TYPE_SCRIPT)
                 {
                     let updateProcessIt = processIt.equals(preprocessIt);
 
-                    let scriptResult = executeJS(preprocessIt.getData().value);
+                    let scriptResult = jsContext.execute(preprocessIt.getData().value);
                     let tmpList = parser.parse(scriptResult);
                     tmpList.trimEnd(parser.TYPE_COMMAND_BOUNDARY);
 
