@@ -450,6 +450,176 @@ function testParse()
              {type: parser.TYPE_COMMAND_BOUNDARY, value: ''}
          ]);
 
+    /*
+     * SCRIPT SHORTHAND TESTS
+     */
+
+    test(`A dollar sign by itself should do nothing.`,
+
+         'a $ b',
+         [
+             {type: parser.TYPE_TEXT, value: 'a $ b'},
+             {type: parser.TYPE_COMMAND_BOUNDARY, value: ''}
+         ]);
+
+    test(`An equal sign by itself should do nothing.`,
+
+         'a = b',
+         [
+             {type: parser.TYPE_TEXT, value: 'a = b'},
+             {type: parser.TYPE_COMMAND_BOUNDARY, value: ''}
+         ]);
+
+    test(`Putting an equal sign in front of text is shorthand for {=$.text}`,
+
+         'a =p1.p b',
+         [
+             {type: parser.TYPE_TEXT, value: 'a '},
+             {type: parser.TYPE_SCRIPT, value: '=$.p1.p'},
+             {type: parser.TYPE_TEXT, value: ' b'},
+             {type: parser.TYPE_COMMAND_BOUNDARY, value: ''}
+         ]);
+
+    test(`Putting a dollar sign in front of text is shorthand for {$.text}`,
+
+         'a $p1.p b',
+         [
+             {type: parser.TYPE_TEXT, value: 'a '},
+             {type: parser.TYPE_SCRIPT, value: '$.p1.p'},
+             {type: parser.TYPE_TEXT, value: ' b'},
+             {type: parser.TYPE_COMMAND_BOUNDARY, value: ''}
+         ]);
+
+    test(`An equal sign or dollar sign in the middle of text is not shorthand script.`,
+
+         'a a$p1.p 1=b',
+         [
+             {type: parser.TYPE_TEXT, value: 'a a$p1.p 1=b'},
+             {type: parser.TYPE_COMMAND_BOUNDARY, value: ''}
+         ]);
+
+    test(`An equal sign immediately following a command boundary is shorthand.`,
+
+         'a;=p1.p b',
+         [
+             {type: parser.TYPE_TEXT, value: 'a'},
+             {type: parser.TYPE_COMMAND_BOUNDARY, value: ';'},
+             {type: parser.TYPE_SCRIPT, value: '=$.p1.p'},
+             {type: parser.TYPE_TEXT, value: ' b'},
+             {type: parser.TYPE_COMMAND_BOUNDARY, value: ''}
+         ]);
+
+    test(`A dollar sign immediately following a command boundary is shorthand.`,
+
+         'a;$p1.p b',
+         [
+             {type: parser.TYPE_TEXT, value: 'a'},
+             {type: parser.TYPE_COMMAND_BOUNDARY, value: ';'},
+             {type: parser.TYPE_SCRIPT, value: '$.p1.p'},
+             {type: parser.TYPE_TEXT, value: ' b'},
+             {type: parser.TYPE_COMMAND_BOUNDARY, value: ''}
+         ]);
+
+    test(`Script shorthand is ended when a ; is encountered.`,
+
+         'a $p1.p;b =p2.p;c',
+         [
+             {type: parser.TYPE_TEXT, value: 'a '},
+             {type: parser.TYPE_SCRIPT, value: '$.p1.p'},
+             {type: parser.TYPE_COMMAND_BOUNDARY, value: ';'},
+             {type: parser.TYPE_TEXT, value: 'b '},
+             {type: parser.TYPE_SCRIPT, value: '=$.p2.p'},
+             {type: parser.TYPE_COMMAND_BOUNDARY, value: ';'},
+             {type: parser.TYPE_TEXT, value: 'c'},
+             {type: parser.TYPE_COMMAND_BOUNDARY, value: ''}
+         ]);
+
+    test(`Script shorthand is ended when EOL is encountered.`,
+
+         'a $p1.p\nb =p2.p\r\nc',
+         [
+             {type: parser.TYPE_TEXT, value: 'a '},
+             {type: parser.TYPE_SCRIPT, value: '$.p1.p'},
+             {type: parser.TYPE_COMMAND_BOUNDARY, value: '\n'},
+             {type: parser.TYPE_TEXT, value: 'b '},
+             {type: parser.TYPE_SCRIPT, value: '=$.p2.p'},
+             {type: parser.TYPE_COMMAND_BOUNDARY, value: '\r\n'},
+             {type: parser.TYPE_TEXT, value: 'c'},
+             {type: parser.TYPE_COMMAND_BOUNDARY, value: ''}
+         ]);
+
+    test(`Script shorthand is ended when a whitespace character is encountered.`,
+
+         'a $p1.p b =p2.p\tc',
+         [
+             {type: parser.TYPE_TEXT, value: 'a '},
+             {type: parser.TYPE_SCRIPT, value: '$.p1.p'},
+             {type: parser.TYPE_TEXT, value: ' b '},
+             {type: parser.TYPE_SCRIPT, value: '=$.p2.p'},
+             {type: parser.TYPE_TEXT, value: '\tc'},
+             {type: parser.TYPE_COMMAND_BOUNDARY, value: ''}
+         ]);
+
+    test(`Top level strings can contain any characters.`,
+
+         'a $a=")]}1([{`\'test" =b=\')]}2([{`"test\' $c=`)}]3({[ \'"`',
+         [
+             {type: parser.TYPE_TEXT, value: 'a '},
+             {type: parser.TYPE_SCRIPT, value: '$.a=")]}1([{`\'test"'},
+             {type: parser.TYPE_TEXT, value: ' '},
+             {type: parser.TYPE_SCRIPT, value: '=$.b=\')]}2([{`"test\''},
+             {type: parser.TYPE_TEXT, value: ' '},
+             {type: parser.TYPE_SCRIPT, value: '$.c=`)}]3({[ \'"`'},
+             {type: parser.TYPE_COMMAND_BOUNDARY, value: ''}
+         ]);
+
+    test(`Test creating a arrow function with complex inner code.`,
+
+         'a $f=(x)=>{ let y=3;\nif (x > 2) return x + y;\nelse return M.sin(x) + $.p[\'key\']; } b',
+         [
+             {type: parser.TYPE_TEXT, value: 'a '},
+             {type: parser.TYPE_SCRIPT, value: '$.f=(x)=>{ let y=3;\nif (x > 2) return x + y;\nelse return M.sin(x) + $.p[\'key\']; }'},
+             {type: parser.TYPE_TEXT, value: ' b'},
+             {type: parser.TYPE_COMMAND_BOUNDARY, value: ''}
+         ]);
+
+    test(`Test nested delimiters.`,
+
+         'a $f(([]()test[[[]]]{([])})) =g(([]()test[[[]]]{([])})) b',
+         [
+             {type: parser.TYPE_TEXT, value: 'a '},
+             {type: parser.TYPE_SCRIPT, value: '$.f(([]()test[[[]]]{([])}))'},
+             {type: parser.TYPE_TEXT, value: ' '},
+             {type: parser.TYPE_SCRIPT, value: '=$.g(([]()test[[[]]]{([])}))'},
+             {type: parser.TYPE_TEXT, value: ' b'},
+             {type: parser.TYPE_COMMAND_BOUNDARY, value: ''}
+         ]);
+
+    test(`Test strings inside nested delimiters.`,
+
+         'a $f([ ")}]1({[" \')}]2({[\' `)}]3({[` ]) b',
+         [
+             {type: parser.TYPE_TEXT, value: 'a '},
+             {type: parser.TYPE_SCRIPT, value: '$.f([ ")}]1({[" \')}]2({[\' `)}]3({[` ])'},
+             {type: parser.TYPE_TEXT, value: ' b'},
+             {type: parser.TYPE_COMMAND_BOUNDARY, value: ''}
+         ]);
+
+    test(`Test using script shorthand for creating a string.`,
+
+         '$a="this is a test"',
+         [
+             {type: parser.TYPE_SCRIPT, value: '$.a="this is a test"'},
+             {type: parser.TYPE_COMMAND_BOUNDARY, value: ''}
+         ]);
+
+    test(`Leaving a shorthand script delimiter open will parse to the end of the input.`,
+
+         '=a=([ more stuff after delimiters',
+         [
+             {type: parser.TYPE_SCRIPT, value: '=$.a=([ more stuff after delimiters'},
+             {type: parser.TYPE_COMMAND_BOUNDARY, value: ''}
+         ]);
 
     logger.log("Completed testing parser.parse");
     logger.log(`Passes:   ${stats.passes}`);

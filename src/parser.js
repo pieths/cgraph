@@ -8,7 +8,8 @@ const TYPE_UNKNOWN = 0;
 const TYPE_TEXT = 1;
 const TYPE_COMMAND_BOUNDARY = 2;
 const TYPE_LINE_CONTINUATION = 3;
-const TYPE_INPUT_END = 4;
+const TYPE_SCRIPT_SHORTHAND = 4;
+const TYPE_INPUT_END = 5;
 const TYPE_GROUP = DELIMITED_BLOCKS_START_VALUE;
 const TYPE_STRING = DELIMITED_BLOCKS_START_VALUE + 1;
 const TYPE_SCRIPT = DELIMITED_BLOCKS_START_VALUE + 2;
@@ -29,6 +30,14 @@ function List()
         {
             type = TYPE_TEXT;
             value = ' ';
+        }
+        else if (type == TYPE_SCRIPT_SHORTHAND)
+        {
+            type = TYPE_SCRIPT;
+
+            if (value.charAt(0) == '=')
+                value = "=$." + value.substring(1);
+            else value = "$." + value.substring(1);
         }
 
         let node = {data: {type: type, value: value}, prev: null, next: null};
@@ -160,6 +169,10 @@ function List()
 }
 
 
+let isEOLChar = ch => ((ch == "\r") || (ch == "\n"));
+let isWhiteSpace = ch => ((ch == " ") || (ch == "\n") || (ch == "\r") || (ch == "\t"));
+
+
 function parse(input)
 {
     let i = 0;
@@ -167,6 +180,7 @@ function parse(input)
     let list = new List();
     let ch = input.charAt(i);
     let delimCount = 0;
+    let delimStack = [];
 
     if (input == "") return list;
 
@@ -186,8 +200,7 @@ function parse(input)
     };
 
     let peek = () => input.charAt(i + 1);
-    let isEOLChar = ch => ((ch == "\r") || (ch == "\n"));
-
+    let prev = () => input.charAt(i - 1);
 
     while (type != TYPE_INPUT_END)
     {
@@ -202,6 +215,40 @@ function parse(input)
         else if (type == TYPE_STRING) checkForDelimiter(ch, '"', '"');
         else if (type == TYPE_SCRIPT) checkForDelimiter(ch, '{', '}');
         else if (type == TYPE_GROUP_SCRIPT) checkForDelimiter(ch, '{', '}', TYPE_GROUP);
+        else if (type == TYPE_SCRIPT_SHORTHAND)
+        {
+            if (delimStack.length == 0)
+            {
+                if (isWhiteSpace(ch))
+                    newType = isEOLChar(ch) ? TYPE_COMMAND_BOUNDARY : TYPE_TEXT;
+                else if (ch == ';') newType = TYPE_COMMAND_BOUNDARY;
+                else if ("([{\"'`".includes(ch)) delimStack.push(ch);
+            }
+            else
+            {
+                let top = delimStack[delimStack.length - 1];
+
+                if (top == '"')
+                {
+                    if (ch == '"') delimStack.pop();
+                }
+                else if (top == "'")
+                {
+                    if (ch == "'") delimStack.pop();
+                }
+                else if (top == "`")
+                {
+                    if (ch == "`") delimStack.pop();
+                }
+                else
+                {
+                    if ((ch == ')') && (top == '(')) delimStack.pop();
+                    else if ((ch == ']') && (top == '[')) delimStack.pop();
+                    else if ((ch == '}') && (top == '{')) delimStack.pop();
+                    else if ("([{\"'`".includes(ch)) delimStack.push(ch);
+                }
+            }
+        }
         else if ((type == TYPE_UNKNOWN) ||
                  (type == TYPE_TEXT) ||
                  (type == TYPE_COMMAND_BOUNDARY) ||
@@ -213,6 +260,9 @@ function parse(input)
             else if (ch == '{') newType = TYPE_SCRIPT;
             else if (isEOLChar(ch) || (ch == ';')) newType = TYPE_COMMAND_BOUNDARY;
             else if ((ch == "\\") && isEOLChar(peek())) newType = TYPE_LINE_CONTINUATION;
+            else if (((ch == '$') || (ch == '=')) &&
+                     ((type != TYPE_TEXT) || isWhiteSpace(prev())) &&
+                     !isWhiteSpace(peek())) newType = TYPE_SCRIPT_SHORTHAND;
             else newType = TYPE_TEXT;
         }
 
