@@ -1,13 +1,28 @@
 #input
 {
     width: 90%;
-    height: 48%;
+    height: 45%;
 }
 
 #output
 {
     width: 90%;
-    height: 48%;
+    height: 45%;
     border: 1px solid #ddd;
+}
+
+.control-group
+{
+    padding-top: 0.5em;
+}
+
+button
+{
+    padding: 0.4em;
+}
+
+select
+{
+    padding: 0.4em;
 }
 
