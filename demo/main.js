@@ -15,6 +15,9 @@ function initialize()
     let deleteButton = document.getElementById('delete_button');
     deleteButton.addEventListener('click', deletePreset);
 
+    let clearTextAreaButton = document.getElementById('clear_textarea_button');
+    clearTextAreaButton.addEventListener('click', resetTextArea);
+
     let inputElement = document.getElementById('input');
     inputElement.addEventListener('input', evt => { parseInput(inputElement.value) });
 
@@ -32,6 +35,14 @@ function initialize()
     });
 
     updatePresetsElement();
+}
+
+
+function resetTextArea()
+{
+    let inputElement = document.getElementById('input');
+    inputElement.value = "init w 30em r -10 -10 150 100 fss 0.333; grid; axis;\n";
+    parseInput(inputElement.value);
 }
 
 
