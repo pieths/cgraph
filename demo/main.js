@@ -6,6 +6,52 @@ import {CGraph} from '../src/cgraph.js';
 
 var presets = {};
 
+const defaultPresets =
+{
+'Simple Text Inside A Box':
+`init w 30em r -10 -10 150 100 fss 0.333; grid; axis;
+
+# Modify this point to change the location of the rect
+$p=P(71, 32)
+
+rect id r1 b =p 40 20 f blue fo 0.3 sw 3
+text p =r1.b.c.addY(-2) t "TEST" ha c f #fff fs 20`,
+
+/*******************************************/
+
+'Arrow Pointing To Function':
+`init w 28em r -2 -2 7 2 fss 0.0201; grid; axis;
+
+# Modify this value to change where the arrow points
+$x=1.8
+
+# Modify this value to change the function
+$f=(x)=>{return M.sin(x*2)}
+
+$p=P($.x, $.f($.x))
+func fn "$.f" r 0 {=2*M.PI} 100
+point p =p; arrow p 4.8 1.4 =p o 0.5 sw 1.5 sda 0.05 sc red
+text p 5.1 1.4 t {=M.round($.f($.x) * 100)/100}`,
+
+/*******************************************/
+
+'Riemann Sum Bars':
+`init w 30em r -10 -20 150 100 fss 0.333; grid; axis;
+
+# Modify this value to change the number of bars
+$barWidth=5.4
+
+$f=(x)=>{return (Math.sin(x / 15) * 23) + 46}
+func fn "$.f" r 0 200 100 sw 2
+
+{ // Riemann Sum Bars
+let width=$.barWidth; let b=B(30, 0, width, 10); let _='';
+for (let i=30; i < 100; i+=width, b.x += width)
+    _ += \`rect b \${b.setH($.f(i))} f red fo 0.3;\`;
+return _
+}`,
+};
+
 
 function initialize()
 {
@@ -14,6 +60,9 @@ function initialize()
 
     let deleteButton = document.getElementById('delete_button');
     deleteButton.addEventListener('click', deletePreset);
+
+    let resetPresetsButton = document.getElementById('reset_presets_button');
+    resetPresetsButton.addEventListener('click', resetPresetsToDefault);
 
     let clearTextAreaButton = document.getElementById('clear_textarea_button');
     clearTextAreaButton.addEventListener('click', resetTextArea);
@@ -46,10 +95,29 @@ function resetTextArea()
 }
 
 
+function resetPresetsToDefault()
+{
+    presets = {};
+
+    for (let name in defaultPresets)
+    {
+        if (defaultPresets.hasOwnProperty(name))
+        {
+            presets[name] = defaultPresets[name];
+        }
+    }
+
+    savePresetsToLocalStorage();
+    updatePresetsElement();
+}
+
+
 function getPresetsFromLocalStorage()
 {
     presets = window.localStorage.getItem('presets');
-    presets = presets ? JSON.parse(presets) : {};
+
+    if (presets) presets = JSON.parse(presets);
+    else resetPresetsToDefault();
 }
 
 
