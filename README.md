@@ -1,6 +1,8 @@
 ## Overview
 
 CGraph is a compact and scriptable declarative graphing library.
+See [CGraph Demo](https://pieths.github.io/cgraph) for a live
+interactive demo.
 
 ## 3rd Party Licenses
 
