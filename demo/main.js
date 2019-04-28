@@ -8,6 +8,50 @@ var presets = {};
 
 const defaultPresets =
 {
+'Basic Shapes And Commands':
+`init w 30em r -10 -10 150 100 fss 0.333; grid; axis;
+
+point p 10 90
+text p 10 80 t "Point" ha c
+
+points p (40 93 45 95 35 93)
+text p 40 80 t "Points" ha c
+
+circle c 70 93 r 3
+text p 70 80 t "Circle" ha c
+
+ellipse b 95 90 10 5
+text p 100 80 t "Ellipse" ha c
+
+line p 125 90 135 97
+text p 130 80 t "Line" ha c
+
+path d (M 10 50 l 5 0 l 0 5 l 5 0 l 0 -5 l 5 0)
+text p 17 40 t "Path" ha c
+
+rect b 40 50 20 10
+text p 50 40 t "Rect" ha c
+
+arrow p 75 50 100 55
+text p 89 40 t "Arrow" ha c
+
+triangle p 116 50 140 50 140 60
+text p 129 40 t "Triangle" ha c
+
+setblob b 5 15 20 10
+text p 15 7 t "Set Blob" ha c
+
+brace p 40 15 60 15 50 20
+text p 50 7 t "Brace" ha c
+
+curve p ( 70 15 77 15 80 18 81 22 83.5 23 86 22 89 17 96 15)
+text p 84 7 t "Curve" ha c
+
+img x 110 y 30 w 30 h 15 url feynmann.svg
+text p 124 7 t "Image" ha c`,
+
+/*******************************************/
+
 'Simple Text Inside A Box':
 `init w 30em r -10 -10 150 100 fss 0.333; grid; axis;
 
