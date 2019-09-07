@@ -699,7 +699,23 @@ const commandProcessor = (function() {
                 if (trimmedValue.length > 0)
                 {
                     var chunks = trimmedValue.split(/\s+/);
-                    if (command.name.length == 0) command.name = chunks.shift();
+                    if (command.name.length == 0)
+                    {
+                        let chunk = chunks.shift();
+                        let index = chunk.lastIndexOf(":");
+                        if (index > 0)
+                        {
+                            command.name = chunk.substring(0, index);
+
+                            let id = chunk.substring(index + 1);
+                            if (id.length > 0)
+                            {
+                                command.args.push('id');
+                                command.args.push(id);
+                            }
+                        }
+                        else command.name = chunk;
+                    }
                     chunks.forEach(chunk => command.args.push(chunk));
                 }
             }
