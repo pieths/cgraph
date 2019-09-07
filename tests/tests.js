@@ -200,6 +200,14 @@ function testParse()
              {type: parser.TYPE_COMMAND_BOUNDARY, value: ';'}
          ]);
 
+    test(`Multiple command boundary delimiters are combined in to one value.`,
+
+         "a;;\r\n;\n",
+         [
+             {type: parser.TYPE_TEXT, value: 'a'},
+             {type: parser.TYPE_COMMAND_BOUNDARY, value: ';;\r\n;\n'}
+         ]);
+
     /*
      * GROUP TESTS
      */
