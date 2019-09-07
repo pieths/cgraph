@@ -774,11 +774,8 @@ const commandProcessor = (function() {
     }
 
 
-    function processInput(input, cg)
+    function processNodes(list, cg, state)
     {
-        let commandInstances = [];
-
-        let list = parser.parse(input);
         let preprocessIt = list.getIterator();
         let processIt = list.getIterator();
 
@@ -811,7 +808,7 @@ const commandProcessor = (function() {
             let commandInstance = processCommand(processIt, cg);
             if (commandInstance)
             {
-                commandInstances.push(commandInstance);
+                state.commandInstances.push(commandInstance);
 
                 if (commandInstance.name && commandInstance.scriptInterface)
                 {
@@ -823,8 +820,16 @@ const commandProcessor = (function() {
             processIt.advance();
             preprocessIt.advance();
         }
+    }
 
-        commandInstances.forEach(instance => instance.render());
+    function processInput(input, cg)
+    {
+        let state = {commandInstances: []};
+
+        let list = parser.parse(input);
+        processNodes(list, cg, state);
+
+        state.commandInstances.forEach(instance => instance.render());
     }
 
     return {
