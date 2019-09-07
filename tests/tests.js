@@ -1544,6 +1544,135 @@ function testParserListIterator()
         if (!list.isEmpty()) throw 'List is not empty';
     });
 
+    test(
+    `Copying an empty list returns an empty list.`,
+    () => {
+        let result = parser.parse('');
+        let copy = result.copy();
+
+        verifyList(result, []);
+        verifyList(copy, []);
+    });
+
+    test(
+    `Copy without arguments copies over the entire list.`,
+    () => {
+        let result = parser.parse('a(b)"e"');
+        let copy = result.copy();
+
+        result.clear();
+        verifyList(result, []);
+
+        verifyList(copy, [
+            {type: parser.TYPE_TEXT, value: 'a'},
+            {type: parser.TYPE_GROUP, value: 'b'},
+            {type: parser.TYPE_STRING, value: 'e'},
+            {type: parser.TYPE_COMMAND_BOUNDARY, value: ''},
+        ]);
+    });
+
+    test(
+    `Copy without end iterator copies all the way to the end of the list.`,
+    () => {
+        let result = parser.parse('a(b)"e"');
+        let it = result.getIterator();
+        it.advance();
+
+        let copy = result.copy(it);
+
+        verifyList(result, [
+            {type: parser.TYPE_TEXT, value: 'a'},
+            {type: parser.TYPE_GROUP, value: 'b'},
+            {type: parser.TYPE_STRING, value: 'e'},
+            {type: parser.TYPE_COMMAND_BOUNDARY, value: ''},
+        ]);
+
+        verifyList(copy, [
+            {type: parser.TYPE_GROUP, value: 'b'},
+            {type: parser.TYPE_STRING, value: 'e'},
+            {type: parser.TYPE_COMMAND_BOUNDARY, value: ''},
+        ]);
+    });
+
+    test(
+    `Copy with end iterator copies all the way to the end inclusive.`,
+    () => {
+        let result = parser.parse('a(b)"e"');
+
+        let itStart = result.getIterator();
+        itStart.advance();
+
+        let itEnd = itStart.clone();
+        itEnd.advance();
+
+        let copy = result.copy(itStart, itEnd);
+
+        verifyList(result, [
+            {type: parser.TYPE_TEXT, value: 'a'},
+            {type: parser.TYPE_GROUP, value: 'b'},
+            {type: parser.TYPE_STRING, value: 'e'},
+            {type: parser.TYPE_COMMAND_BOUNDARY, value: ''},
+        ]);
+
+        verifyList(copy, [
+            {type: parser.TYPE_GROUP, value: 'b'},
+            {type: parser.TYPE_STRING, value: 'e'},
+        ]);
+    });
+
+    test(
+    `Copy with end iterator at end copies all the way to the end of the list.`,
+    () => {
+        let result = parser.parse('a(b)"e"');
+
+        let itStart = result.getIterator();
+        itStart.advance();
+
+        let itEnd = itStart.clone();
+        while (!itEnd.atEnd()) itEnd.advance();
+
+        let copy = result.copy(itStart, itEnd);
+
+        verifyList(result, [
+            {type: parser.TYPE_TEXT, value: 'a'},
+            {type: parser.TYPE_GROUP, value: 'b'},
+            {type: parser.TYPE_STRING, value: 'e'},
+            {type: parser.TYPE_COMMAND_BOUNDARY, value: ''},
+        ]);
+
+        verifyList(copy, [
+            {type: parser.TYPE_GROUP, value: 'b'},
+            {type: parser.TYPE_STRING, value: 'e'},
+            {type: parser.TYPE_COMMAND_BOUNDARY, value: ''},
+        ]);
+    });
+
+    test(
+    `Updating the value of a node in a copied list does not effect the original.`,
+    () => {
+        let result = parser.parse('a(b)"e"');
+        let copy = result.copy();
+
+        let it = copy.getIterator();
+        it.advance();
+        let data = it.getData();
+        data.value = 'f';
+
+        verifyList(result, [
+            {type: parser.TYPE_TEXT, value: 'a'},
+            {type: parser.TYPE_GROUP, value: 'b'},
+            {type: parser.TYPE_STRING, value: 'e'},
+            {type: parser.TYPE_COMMAND_BOUNDARY, value: ''},
+        ]);
+
+        verifyList(copy, [
+            {type: parser.TYPE_TEXT, value: 'a'},
+            {type: parser.TYPE_GROUP, value: 'f'},
+            {type: parser.TYPE_STRING, value: 'e'},
+            {type: parser.TYPE_COMMAND_BOUNDARY, value: ''},
+        ]);
+    });
+
     logger.log("Completed testing parser.List.Iterator");
     logger.log(`Passes:   ${stats.passes}`);
     logger.log(`Failures: ${stats.failures}`);

@@ -89,6 +89,31 @@ function List()
         }
     }
 
+    /*
+     * Create a copy of the list. If itStart
+     * is provided then start copying at the
+     * specified node. If itEnd is provided
+     * then stop copying at that node (inclusive).
+     */
+    this.copy = function(itStart, itEnd)
+    {
+        let it = itStart ? itStart.clone() : this.getIterator();
+        if (!itEnd) itEnd = new Iterator(tail);
+
+        let result = new List();
+
+        while (!it.atEnd())
+        {
+            let data = it.getData();
+            result.append(data.type, data.value);
+
+            if (it.equals(itEnd)) break;
+            it.advance();
+        }
+
+        return result;
+    }
+
     function Iterator(node)
     {
         let current = node;
