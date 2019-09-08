@@ -63,6 +63,21 @@ text p =r1.b.c.addY(-2) t "TEST" ha c f #fff fs 20`,
 
 /*******************************************/
 
+'Text Inside A Box Using Macros':
+`init w 30em r -10 -10 150 100 fss 0.333; grid; axis;
+
+_textbox rect:r{=$.id} b =p 40 20 f blue fo 0.3 sw 3;
+text p {=\`=r\${$.id}.b.c.addY(-2)\`} t =t ha c f #fff fs 20;;
+
+$id=1 $p=P(13, 32) $t="Text1" @textbox
+$id=2 $p=P(74, 54) $t="Text2" @textbox
+$id=3 $p=P(74, 10) $t="Text3" @textbox
+arrow p =r1.b.mr =r2.b.ml
+arrow p =r1.b.mr =r3.b.ml
+`,
+
+/*******************************************/
+
 'Arrow Pointing To Function':
 `init w 28em r -2 -2 7 2 fss 0.0201; grid; axis;
 

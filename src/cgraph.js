@@ -577,6 +577,9 @@ const commandProcessor = (function() {
     var previousCommand = null;
     var numExecutedCommands = 0;
 
+    var macroDefineRegex = /^\s*_([a-zA-Z][0-9a-zA-Z]*)\s*/;
+    var macroInvokeRegex = /^\s*@([a-zA-Z][0-9a-zA-Z]*)\s*$/;
+
 
     function reset()
     {
@@ -699,7 +702,23 @@ const commandProcessor = (function() {
                 if (trimmedValue.length > 0)
                 {
                     var chunks = trimmedValue.split(/\s+/);
-                    if (command.name.length == 0) command.name = chunks.shift();
+                    if (command.name.length == 0)
+                    {
+                        let chunk = chunks.shift();
+                        let index = chunk.lastIndexOf(":");
+                        if (index > 0)
+                        {
+                            command.name = chunk.substring(0, index);
+
+                            let id = chunk.substring(index + 1);
+                            if (id.length > 0)
+                            {
+                                command.args.push('id');
+                                command.args.push(id);
+                            }
+                        }
+                        else command.name = chunk;
+                    }
                     chunks.forEach(chunk => command.args.push(chunk));
                 }
             }
@@ -758,11 +777,73 @@ const commandProcessor = (function() {
     }
 
 
-    function processInput(input, cg)
+    function extractMacro(list, it, state)
     {
-        let commandInstances = [];
+        let itStart = it.clone();
+        let itEnd = it.clone();
+        let data = it.getData();
 
-        let list = parser.parse(input);
+        let match = macroDefineRegex.exec(data.value);
+        let macroName = match[1];
+
+        data.value = data.value.substring(match[0].length);
+
+        itEnd.advance();
+        while (!itEnd.atEnd())
+        {
+            if ((itEnd.getData().type == parser.TYPE_COMMAND_BOUNDARY) &&
+                 itEnd.getData().value.includes(';;')) break;
+            itEnd.advance();
+        }
+
+        state.macros[macroName] = list.copy(itStart, itEnd);
+        itEnd.advance();
+        return itEnd;
+    }
+
+
+    function isMacroInvocation(it)
+    {
+        let result = false;
+
+        if ((it.getData().type == parser.TYPE_TEXT) &&
+             macroInvokeRegex.test(it.getData().value))
+        {
+            it = it.clone();
+            it.advance();
+
+            if (!it.atEnd() &&
+                (it.getData().type == parser.TYPE_COMMAND_BOUNDARY))
+            {
+                result = true;
+            }
+        }
+
+        return result;
+    }
+
+
+    function invokeMacro(it, cg, state)
+    {
+        it = it.clone();
+
+        let match = macroInvokeRegex.exec(it.getData().value);
+        let macroName = match[1];
+
+        if (state.macros.hasOwnProperty(macroName))
+        {
+            let macroNodes = state.macros[macroName].copy();
+            processNodes(macroNodes, cg, state);
+        }
+
+        it.advance();
+        it.advance();
+        return it;
+    }
+
+
+    function processNodes(list, cg, state)
+    {
         let preprocessIt = list.getIterator();
         let processIt = list.getIterator();
 
@@ -771,6 +852,7 @@ const commandProcessor = (function() {
             while (!preprocessIt.atEnd())
             {
                 let type = preprocessIt.getData().type;
+                let value = preprocessIt.getData().value;
 
                 if (type == parser.TYPE_COMMAND_BOUNDARY) break;
                 else if (type == parser.TYPE_GROUP)
@@ -789,26 +871,55 @@ const commandProcessor = (function() {
                     preprocessIt.replaceWithList(tmpList);
                     if (updateProcessIt) processIt = preprocessIt.clone();
                 }
+                else if ((type == parser.TYPE_TEXT) &&
+                          processIt.equals(preprocessIt) &&
+                          macroDefineRegex.test(value))
+                {
+                    processIt = extractMacro(list, processIt, state);
+                    preprocessIt = processIt.clone();
+                    if (processIt.atEnd()) return;
+                }
                 else preprocessIt.advance();
             }
 
-            let commandInstance = processCommand(processIt, cg);
-            if (commandInstance)
+            if (isMacroInvocation(processIt))
             {
-                commandInstances.push(commandInstance);
-
-                if (commandInstance.name && commandInstance.scriptInterface)
-                {
-                    cg.jsContext.addGlobal(commandInstance.name,
-                                           commandInstance.scriptInterface);
-                }
+                processIt = invokeMacro(processIt, cg, state);
+                preprocessIt = processIt.clone();
             }
+            else
+            {
+                let commandInstance = processCommand(processIt, cg);
+                if (commandInstance)
+                {
+                    state.commandInstances.push(commandInstance);
 
-            processIt.advance();
-            preprocessIt.advance();
+                    if (commandInstance.name && commandInstance.scriptInterface)
+                    {
+                        cg.jsContext.addGlobal(commandInstance.name,
+                                               commandInstance.scriptInterface);
+                    }
+                }
+
+                processIt.advance();
+                preprocessIt.advance();
+            }
         }
+    }
 
-        commandInstances.forEach(instance => instance.render());
+
+    function processInput(input, cg)
+    {
+        let state =
+        {
+            macros: {},
+            commandInstances: []
+        };
+
+        let list = parser.parse(input);
+        processNodes(list, cg, state);
+
+        state.commandInstances.forEach(instance => instance.render());
     }
 
     return {

@@ -89,6 +89,49 @@ function List()
         }
     }
 
+    /*
+     * Create a copy of the list. If itStart
+     * is provided then start copying at the
+     * specified node. If itEnd is provided
+     * then stop copying at that node (inclusive).
+     */
+    this.copy = function(itStart, itEnd)
+    {
+        let it = itStart ? itStart.clone() : this.getIterator();
+        if (!itEnd) itEnd = new Iterator(tail);
+
+        let result = new List();
+
+        while (!it.atEnd())
+        {
+            let data = it.getData();
+            result.append(data.type, data.value);
+
+            if (it.equals(itEnd)) break;
+            it.advance();
+        }
+
+        return result;
+    }
+
+    this.toString = function()
+    {
+        let result = 'Parser List [\n';
+        let node = head;
+
+        while (node != null)
+        {
+            let value = node.data.value;
+            value = value.replace('\n', '\\n');
+            value = value.replace('\r\n', '\\r\\n');
+            result += `\t{type:${node.data.type}, value:${value}}\n`;
+
+            node = node.next;
+        }
+
+        return result + ']';
+    }
+
     function Iterator(node)
     {
         let current = node;
