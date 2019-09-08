@@ -52,13 +52,13 @@ text p 124 7 t "Image" ha c`,
 
 /*******************************************/
 
-'Simple Text Inside A Box':
+'Text Inside A Box':
 `init w 30em r -10 -10 150 100 fss 0.333; grid; axis;
 
 # Modify this point to change the location of the rect
 $p=P(71, 32)
 
-rect id r1 b =p 40 20 f blue fo 0.3 sw 3
+rect:r1 b =p 40 20 f blue fo 0.3 sw 3
 text p =r1.b.c.addY(-2) t "TEST" ha c f #fff fs 20`,
 
 /*******************************************/
