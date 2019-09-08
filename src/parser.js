@@ -114,6 +114,24 @@ function List()
         return result;
     }
 
+    this.toString = function()
+    {
+        let result = 'Parser List [\n';
+        let node = head;
+
+        while (node != null)
+        {
+            let value = node.data.value;
+            value = value.replace('\n', '\\n');
+            value = value.replace('\r\n', '\\r\\n');
+            result += `\t{type:${node.data.type}, value:${value}}\n`;
+
+            node = node.next;
+        }
+
+        return result + ']';
+    }
+
     function Iterator(node)
     {
         let current = node;
