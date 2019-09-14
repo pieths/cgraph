@@ -401,6 +401,25 @@ function testParse()
              {type: parser.TYPE_COMMAND_BOUNDARY, value: ''}
          ]);
 
+    test(`Test string inside script.`,
+
+         'a {=b+"test";}',
+         [
+             {type: parser.TYPE_TEXT, value: 'a '},
+             {type: parser.TYPE_SCRIPT, value: '=b+"test";'},
+             {type: parser.TYPE_COMMAND_BOUNDARY, value: ''}
+         ]);
+
+    test(`A script block surrounded by text should stay inbetween the text.`,
+
+         'a{b=3; return b + 1}c',
+         [
+             {type: parser.TYPE_TEXT, value: 'a'},
+             {type: parser.TYPE_SCRIPT, value: 'b=3; return b + 1'},
+             {type: parser.TYPE_TEXT, value: 'c'},
+             {type: parser.TYPE_COMMAND_BOUNDARY, value: ''}
+         ]);
+
     /*
      * GROUP SCRIPT TESTS
      */
