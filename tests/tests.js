@@ -123,6 +123,8 @@ function testParse()
      * LINE CONTINUATION TESTS
      */
 
+    logger.log("--- Line Continuation Tests");
+
     test(`A command statement can be continued on the next line by placing
           a backslash '\\' immediately at the end of the line. The backslash
           and end of line characters following it are replaced with a single
@@ -157,6 +159,8 @@ function testParse()
     /*
      * COMMAND BOUNDARY TESTS
      */
+
+    logger.log("--- Command Boundary Tests");
 
     test(`Command boundaries are delimited by new lines, carriage returns,
           semicolons and the end of the input.`,
@@ -211,6 +215,8 @@ function testParse()
     /*
      * GROUP TESTS
      */
+
+    logger.log("--- Group Tests");
 
     test(`A group is delimited by open and close parenthesis ( ).`,
 
@@ -293,6 +299,8 @@ function testParse()
      * STRING TESTS
      */
 
+    logger.log("--- String Tests");
+
     test(`A string is delimited by quotes (").`,
 
          'a "string of characters"',
@@ -344,6 +352,8 @@ function testParse()
      * SCRIPT TESTS
      */
 
+    logger.log("--- Script Tests");
+
     test(`A script block is delimited by curly braces { } and is passed through as is.`,
 
          'a {b=3; return b + 1}',
@@ -394,6 +404,8 @@ function testParse()
     /*
      * GROUP SCRIPT TESTS
      */
+
+    logger.log("--- Group Script Tests");
 
     test(`A group script block is delimited by curly braces { } and is
           surrounded by group items.`,
@@ -461,6 +473,8 @@ function testParse()
     /*
      * SCRIPT SHORTHAND TESTS
      */
+
+    logger.log("--- Script Shorthand Tests");
 
     test(`A dollar sign by itself should do nothing.`,
 
