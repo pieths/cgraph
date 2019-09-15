@@ -522,13 +522,30 @@ function testParse()
          ]);
 
     test(`Putting =$ in front of text is shorthand for {=$.text}
-          but does not add a dollar sign or dot.`,
+          but does not add a dollar sign.`,
 
          'a =$p1.p b',
          [
              {type: parser.TYPE_TEXT, value: 'a '},
              {type: parser.TYPE_SCRIPT, value: '=$.p1.p'},
              {type: parser.TYPE_TEXT, value: ' b'},
+             {type: parser.TYPE_COMMAND_BOUNDARY, value: ''}
+         ]);
+
+    test(`Script shorthand starting with = but not followed by letter
+          characters are not converted.`,
+
+         'a ="b" =\'c\' =`d` =(e) f',
+         [
+             {type: parser.TYPE_TEXT, value: 'a '},
+             {type: parser.TYPE_SCRIPT, value: '="b"'},
+             {type: parser.TYPE_TEXT, value: ' '},
+             {type: parser.TYPE_SCRIPT, value: '=\'c\''},
+             {type: parser.TYPE_TEXT, value: ' '},
+             {type: parser.TYPE_SCRIPT, value: '=`d`'},
+             {type: parser.TYPE_TEXT, value: ' '},
+             {type: parser.TYPE_SCRIPT, value: '=(e)'},
+             {type: parser.TYPE_TEXT, value: ' f'},
              {type: parser.TYPE_COMMAND_BOUNDARY, value: ''}
          ]);
 
@@ -706,13 +723,32 @@ function testParse()
          ]);
 
     test(`Putting =$ in front of text is shorthand for {=$.text}
-          but does not add a dollar sign or dot.`,
+          but does not add a dollar sign.`,
 
          '(a =$p1.p b)',
          [
              {type: parser.TYPE_GROUP, value: 'a '},
              {type: parser.TYPE_GROUP_SCRIPT, value: '=$.p1.p'},
              {type: parser.TYPE_GROUP, value: ' b'},
+             {type: parser.TYPE_COMMAND_BOUNDARY, value: ''}
+         ]);
+
+    test(`Script shorthand starting with = but not followed by letter
+          characters are not converted.`,
+
+         'a (="b" =\'c\' =`d` =(e)) f',
+         [
+             {type: parser.TYPE_TEXT, value: 'a '},
+             {type: parser.TYPE_GROUP, value: ''},
+             {type: parser.TYPE_GROUP_SCRIPT, value: '="b"'},
+             {type: parser.TYPE_GROUP, value: ' '},
+             {type: parser.TYPE_GROUP_SCRIPT, value: '=\'c\''},
+             {type: parser.TYPE_GROUP, value: ' '},
+             {type: parser.TYPE_GROUP_SCRIPT, value: '=`d`'},
+             {type: parser.TYPE_GROUP, value: ' '},
+             {type: parser.TYPE_GROUP_SCRIPT, value: '=(e)'},
+             {type: parser.TYPE_GROUP, value: ''},
+             {type: parser.TYPE_TEXT, value: ' f'},
              {type: parser.TYPE_COMMAND_BOUNDARY, value: ''}
          ]);
 

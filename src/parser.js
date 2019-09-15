@@ -16,6 +16,8 @@ const TYPE_STRING = DELIMITED_BLOCKS_START_VALUE + 1;
 const TYPE_SCRIPT = DELIMITED_BLOCKS_START_VALUE + 2;
 const TYPE_GROUP_SCRIPT = DELIMITED_BLOCKS_START_VALUE + 3;
 
+const isLetterRegex = /^[a-zA-Z]$/;
+
 
 function List()
 {
@@ -37,7 +39,7 @@ function List()
             type = TYPE_SCRIPT;
 
             if ((value.charAt(0) == '=') &&
-                (value.charAt(1) != '$'))
+                isLetterRegex.test(value.charAt(1)))
                 value = "=$." + value.substring(1);
         }
         else if (type == TYPE_GROUP_SCRIPT_SHORTHAND)
@@ -45,7 +47,7 @@ function List()
             type = TYPE_GROUP_SCRIPT;
 
             if ((value.charAt(0) == '=') &&
-                (value.charAt(1) != '$'))
+                isLetterRegex.test(value.charAt(1)))
                 value = "=$." + value.substring(1);
         }
 
