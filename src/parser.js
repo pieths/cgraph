@@ -230,7 +230,9 @@ let globalVarConvertRegex = /\$([a-zA-Z])/g;
 
 function globalVarReplacer(match, p1, offset, str)
 {
-    return '$.' + p1;
+    return (str.charAt(offset-1) != '$') ?
+           ('$.' + p1) :
+           ('$' + p1);
 }
 
 

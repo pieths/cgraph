@@ -939,6 +939,27 @@ function testParse()
              {type: parser.TYPE_COMMAND_BOUNDARY, value: ''}
          ]);
 
+    test(`Variables names starting with $$ are not converted to globals.`,
+
+         'a {$$b=3} =cd $$ef ({for $$gh} =ij $$kl)',
+         [
+             {type: parser.TYPE_TEXT, value: 'a '},
+             {type: parser.TYPE_SCRIPT, value: '$$b=3'},
+             {type: parser.TYPE_TEXT, value: ' '},
+             {type: parser.TYPE_SCRIPT, value: '=$.cd'},
+             {type: parser.TYPE_TEXT, value: ' '},
+             {type: parser.TYPE_SCRIPT, value: '$$ef'},
+             {type: parser.TYPE_TEXT, value: ' '},
+             {type: parser.TYPE_GROUP, value: ''},
+             {type: parser.TYPE_GROUP_SCRIPT, value: 'for $$gh'},
+             {type: parser.TYPE_GROUP, value: ' '},
+             {type: parser.TYPE_GROUP_SCRIPT, value: '=$.ij'},
+             {type: parser.TYPE_GROUP, value: ' '},
+             {type: parser.TYPE_GROUP_SCRIPT, value: '$$kl'},
+             {type: parser.TYPE_GROUP, value: ''},
+             {type: parser.TYPE_COMMAND_BOUNDARY, value: ''}
+         ]);
+
     logger.log("Completed testing parser.parse");
     logger.log(`Passes:   ${stats.passes}`);
     logger.log(`Failures: ${stats.failures}`);
