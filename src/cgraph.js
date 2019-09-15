@@ -579,6 +579,8 @@ const commandProcessor = (function() {
 
     var macroDefineRegex = /^\s*_([a-zA-Z][0-9a-zA-Z]*)\s*/;
     var macroInvokeRegex = /^\s*@([a-zA-Z][0-9a-zA-Z]*)\s*$/;
+    var forLoopRegex = /^\s*\.for\s*$/;
+    var whitespaceRegex = /^\s*$/;
 
 
     function reset()
@@ -842,6 +844,104 @@ const commandProcessor = (function() {
     }
 
 
+    function isForLoop(it)
+    {
+        if ((it.getData().type == parser.TYPE_TEXT) &&
+            forLoopRegex.test(it.getData().value))
+        {
+            it = it.clone();
+            let numScripts = 0;
+
+            it.advance();
+            while (!it.atEnd() && (numScripts < 3))
+            {
+                let type = it.getData().type;
+
+                if (type == parser.TYPE_SCRIPT)
+                {
+                    numScripts++;
+                }
+                else if ((type != parser.TYPE_TEXT) ||
+                         !whitespaceRegex.test(it.getData().value))
+                {
+                    return false;
+                }
+
+                it.advance();
+            }
+
+            while (!it.atEnd())
+            {
+                let type = it.getData().type;
+
+                if (type == parser.TYPE_COMMAND_BOUNDARY)
+                {
+                    return true;
+                }
+                else if ((type != parser.TYPE_TEXT) ||
+                         !whitespaceRegex.test(it.getData().value))
+                {
+                    return false;
+                }
+
+                it.advance();
+            }
+        }
+
+        return false;
+    }
+
+
+    function processForLoop(list, it, cg, state)
+    {
+        it = it.clone();
+        it.advance();
+
+        let scripts = [];
+        let type = it.getData().type;
+
+        while (type != parser.TYPE_COMMAND_BOUNDARY)
+        {
+            if (type == parser.TYPE_SCRIPT)
+                scripts.push(it.getData().value);
+
+            it.advance();
+            type = it.getData().type;
+        }
+
+        cg.jsContext.execute(scripts[0]);
+
+        it.advance();
+        let itContentStart = it.clone();
+
+        it.advance();
+        while (!it.atEnd())
+        {
+            if ((it.getData().type == parser.TYPE_COMMAND_BOUNDARY) &&
+                 it.getData().value.includes(';;')) break;
+            it.advance();
+        }
+
+        let contentNodes = list.copy(itContentStart, it);
+
+        for (let i=0; i < 100; i++)
+        {
+            let scriptResult = cg.jsContext.execute(scripts[1]);
+            if (scriptResult == 'true')
+            {
+                let nodes = contentNodes.copy();
+                processNodes(nodes, cg, state);
+            }
+            else break;
+
+            cg.jsContext.execute(scripts[2]);
+        }
+
+        it.advance();
+        return it;
+    }
+
+
     function processNodes(list, cg, state)
     {
         let preprocessIt = list.getIterator();
@@ -876,6 +976,14 @@ const commandProcessor = (function() {
                           macroDefineRegex.test(value))
                 {
                     processIt = extractMacro(list, processIt, state);
+                    preprocessIt = processIt.clone();
+                    if (processIt.atEnd()) return;
+                }
+                else if ((type == parser.TYPE_TEXT) &&
+                          processIt.equals(preprocessIt) &&
+                          isForLoop(processIt))
+                {
+                    processIt = processForLoop(list, processIt, cg, state);
                     preprocessIt = processIt.clone();
                     if (processIt.atEnd()) return;
                 }
