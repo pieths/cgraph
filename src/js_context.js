@@ -36,6 +36,13 @@ const P = __dlv[0];
 const B = __dlv[1];
 `;
 
+const globalVarSubstituteRegex = /\$\$([a-zA-Z_][a-zA-Z0-9_]*)/g;
+const globalVarSubstituteReplacer = (match, p1) =>
+{
+    return (globalContext.hasOwnProperty(p1)) ?
+            globalContext[p1] : "";
+}
+
 
 function execute(code, globalContext)
 {
@@ -45,6 +52,11 @@ function execute(code, globalContext)
     {
         code = code.replace("=", "return ");
     }
+
+    code = code.replace(globalVarSubstituteRegex, (match, p1) =>
+    {
+        return (globalContext.hasOwnProperty(p1)) ?  globalContext[p1] : "";
+    });
 
     code = `'use strict';${defaultLocalVarsCode}${code}`;
 
