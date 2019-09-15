@@ -38,7 +38,6 @@ function List()
 
             if (value.charAt(0) == '=')
                 value = "=$." + value.substring(1);
-            else value = "$." + value.substring(1);
         }
         else if (type == TYPE_GROUP_SCRIPT_SHORTHAND)
         {
@@ -46,7 +45,6 @@ function List()
 
             if (value.charAt(0) == '=')
                 value = "=$." + value.substring(1);
-            else value = "$." + value.substring(1);
         }
 
         let node = {data: {type: type, value: value}, prev: null, next: null};
@@ -224,6 +222,13 @@ function List()
 let isEOLChar = ch => ((ch == "\r") || (ch == "\n"));
 let isWhiteSpace = ch => ((ch == " ") || (ch == "\n") || (ch == "\r") || (ch == "\t"));
 
+let globalVarConvertRegex = /\$([a-zA-Z])/g;
+
+function globalVarReplacer(match, p1, offset, str)
+{
+    return '$.' + p1;
+}
+
 
 function extractJS(input, startIndex, endChars, excludeFirstCharInOutput)
 {
@@ -236,19 +241,40 @@ function extractJS(input, startIndex, endChars, excludeFirstCharInOutput)
     let stateStack = [];
     let type = JS_CODE;
     let topDelimiter = "";
+    let typeStart = excludeFirstCharInOutput ? startIndex + 1 : startIndex;
+    let result = [];
 
     let peek = () => input.charAt(i + 1);
     let prev = () => input.charAt(i - 1);
 
+    let updateResult = () =>
+    {
+        if (typeStart < i)
+        {
+            let part = input.substring(typeStart, i);
+
+            if (type == JS_CODE)
+            {
+                part = part.replace(globalVarConvertRegex,
+                                    globalVarReplacer);
+            }
+
+            result.push(part);
+            typeStart = i;
+        }
+    }
+
     let pushState = (newType, newDelim) =>
     {
         stateStack.push({type: type, delim: topDelimiter});
+        if (type != newType) updateResult();
         type = newType;
         topDelimiter = newDelim;
     }
     let popState = () =>
     {
         let state = stateStack.pop();
+        if (type != state.type) updateResult();
         type = state.type;
         topDelimiter = state.delim;
     }
@@ -292,10 +318,10 @@ function extractJS(input, startIndex, endChars, excludeFirstCharInOutput)
         ch = input.charAt(++i);
     }
 
-    if (excludeFirstCharInOutput) startIndex++;
+    updateResult();
 
     return {
-        script: input.substring(startIndex, i),
+        script: result.join(""),
         endingCh: ch,
         endIndex: i
     };

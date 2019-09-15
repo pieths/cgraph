@@ -817,6 +817,70 @@ function testParse()
              {type: parser.TYPE_COMMAND_BOUNDARY, value: ''}
          ]);
 
+    /*
+     * GLOBAL VAR CONVERT TESTS
+     */
+
+    logger.log("--- Global Variable Convert Tests");
+
+    test(`Variables names starting with $ are converted to globals.`,
+
+         'a {$b=3} =cd $ef ({for $gh} =ij $kl)',
+         [
+             {type: parser.TYPE_TEXT, value: 'a '},
+             {type: parser.TYPE_SCRIPT, value: '$.b=3'},
+             {type: parser.TYPE_TEXT, value: ' '},
+             {type: parser.TYPE_SCRIPT, value: '=$.cd'},
+             {type: parser.TYPE_TEXT, value: ' '},
+             {type: parser.TYPE_SCRIPT, value: '$.ef'},
+             {type: parser.TYPE_TEXT, value: ' '},
+             {type: parser.TYPE_GROUP, value: ''},
+             {type: parser.TYPE_GROUP_SCRIPT, value: 'for $.gh'},
+             {type: parser.TYPE_GROUP, value: ' '},
+             {type: parser.TYPE_GROUP_SCRIPT, value: '=$.ij'},
+             {type: parser.TYPE_GROUP, value: ' '},
+             {type: parser.TYPE_GROUP_SCRIPT, value: '$.kl'},
+             {type: parser.TYPE_GROUP, value: ''},
+             {type: parser.TYPE_COMMAND_BOUNDARY, value: ''}
+         ]);
+
+    test(`Global variable name conversion does not occur inside strings`,
+
+         'a {$b "$c" $d \'$e\' $f `$g`}',
+         [
+             {type: parser.TYPE_TEXT, value: 'a '},
+             {type: parser.TYPE_SCRIPT, value: '$.b "$c" $.d \'$e\' $.f `$g`'},
+             {type: parser.TYPE_COMMAND_BOUNDARY, value: ''}
+         ]);
+
+    test(`Global variable name conversion does not occur inside strings.`,
+
+         'a {$b "$c" $d \'$e\' $f `$g`}',
+         [
+             {type: parser.TYPE_TEXT, value: 'a '},
+             {type: parser.TYPE_SCRIPT, value: '$.b "$c" $.d \'$e\' $.f `$g`'},
+             {type: parser.TYPE_COMMAND_BOUNDARY, value: ''}
+         ]);
+
+    test(`Global variable name conversion occurs in code contained within a template string.`,
+
+         'a {$b `$c${$d $e}$f`}',
+         [
+             {type: parser.TYPE_TEXT, value: 'a '},
+             {type: parser.TYPE_SCRIPT, value: '$.b `$c${$.d $.e}$f`'},
+             {type: parser.TYPE_COMMAND_BOUNDARY, value: ''}
+         ]);
+
+    test(`Global variable name conversion does not occur in strings contained
+          within template strings.`,
+
+         'a {$b `$c${$d "$e" \'$f\' `$g` $h}$i`}',
+         [
+             {type: parser.TYPE_TEXT, value: 'a '},
+             {type: parser.TYPE_SCRIPT, value: '$.b `$c${$.d "$e" \'$f\' `$g` $.h}$i`'},
+             {type: parser.TYPE_COMMAND_BOUNDARY, value: ''}
+         ]);
+
     logger.log("Completed testing parser.parse");
     logger.log(`Passes:   ${stats.passes}`);
     logger.log(`Failures: ${stats.failures}`);
