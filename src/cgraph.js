@@ -882,6 +882,8 @@ const commandProcessor = (function() {
                 else preprocessIt.advance();
             }
 
+            if (processIt.atEnd()) break;
+
             if (isMacroInvocation(processIt))
             {
                 processIt = invokeMacro(processIt, cg, state);
