@@ -36,14 +36,16 @@ function List()
         {
             type = TYPE_SCRIPT;
 
-            if (value.charAt(0) == '=')
+            if ((value.charAt(0) == '=') &&
+                (value.charAt(1) != '$'))
                 value = "=$." + value.substring(1);
         }
         else if (type == TYPE_GROUP_SCRIPT_SHORTHAND)
         {
             type = TYPE_GROUP_SCRIPT;
 
-            if (value.charAt(0) == '=')
+            if ((value.charAt(0) == '=') &&
+                (value.charAt(1) != '$'))
                 value = "=$." + value.substring(1);
         }
 

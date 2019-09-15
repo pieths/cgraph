@@ -521,6 +521,17 @@ function testParse()
              {type: parser.TYPE_COMMAND_BOUNDARY, value: ''}
          ]);
 
+    test(`Putting =$ in front of text is shorthand for {=$.text}
+          but does not add a dollar sign or dot.`,
+
+         'a =$p1.p b',
+         [
+             {type: parser.TYPE_TEXT, value: 'a '},
+             {type: parser.TYPE_SCRIPT, value: '=$.p1.p'},
+             {type: parser.TYPE_TEXT, value: ' b'},
+             {type: parser.TYPE_COMMAND_BOUNDARY, value: ''}
+         ]);
+
     test(`Putting a dollar sign in front of text is shorthand for {$.text}`,
 
          'a $p1.p b',
@@ -687,6 +698,17 @@ function testParse()
     test(`Putting an equal sign in front of text is shorthand for {=$.text}`,
 
          '(a =p1.p b)',
+         [
+             {type: parser.TYPE_GROUP, value: 'a '},
+             {type: parser.TYPE_GROUP_SCRIPT, value: '=$.p1.p'},
+             {type: parser.TYPE_GROUP, value: ' b'},
+             {type: parser.TYPE_COMMAND_BOUNDARY, value: ''}
+         ]);
+
+    test(`Putting =$ in front of text is shorthand for {=$.text}
+          but does not add a dollar sign or dot.`,
+
+         '(a =$p1.p b)',
          [
              {type: parser.TYPE_GROUP, value: 'a '},
              {type: parser.TYPE_GROUP_SCRIPT, value: '=$.p1.p'},
