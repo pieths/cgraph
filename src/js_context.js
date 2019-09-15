@@ -81,6 +81,10 @@ function execute(code, globalContext)
                         break;
                 }
                 break;
+
+            case 'boolean':
+                result = funcReturnValue.toString();
+                break;
         }
     }
     catch(error)
