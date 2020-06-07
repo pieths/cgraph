@@ -1,12 +1,12 @@
-/* Copyright (c) 2019, Piet Hein Schouten. All rights reserved.
+/* Copyright (c) 2020, Piet Hein Schouten. All rights reserved.
  * Licensed under the terms of the MIT license.
  */
-import {commands} from './command_lib.js';
-import {parser} from './parser.js';
+import {CommandsApi} from './command_lib.js';
 import {jsContextFactory} from './js_context.js';
 import {roundToNearestMultiple, parseFloats, createSvgElement, setAttributes} from './utils.js';
 import {Cache} from './cache.js';
 import {InteractionHandler} from './interaction_handler.js';
+import {graphUtils} from './graph_utils.js';
 
 
 const majorVersion = 1;
@@ -103,8 +103,6 @@ function CGInstance()
 
     var useUniformScaling = false;
     var showUniformScale = false;
-
-    const jsContext = jsContextFactory.newContext();
 
 
     function getId(suffix)
@@ -392,485 +390,17 @@ function CGInstance()
     this.getId = getId;
     this.appendElement = appendElement;
     this.graphRange = graphRange;
-    this.jsContext = jsContext;
     this.initRootElements = initRootElements;
     this.drawAngleMarkers = drawAngleMarkers;
     this.popParentElement = popParentElement;
     this.arrowHeadStartMarkerId = arrowHeadStartMarkerId;
     this.arrowHeadEndMarkerId = arrowHeadEndMarkerId;
-    this.getRootElement = function() { return svgElement; };
-    this.getTransformMatrix = function() { return parentElementStack[1].getScreenCTM(); };
-    this.getScale = function() { return _scale; };
-    this.createSVGPoint = function() { return svgElement.createSVGPoint(); };
-    this.addEventListener = function(e, f) { svgElement.addEventListener(e, f); };
+    this.getRootElement = function() { return svgElement; }
+    this.getTransformMatrix = function() { return parentElementStack[1].getScreenCTM(); }
+    this.getScale = function() { return _scale; }
+    this.createSVGPoint = function() { return svgElement.createSVGPoint(); }
+    this.addEventListener = function(e, f) { svgElement.addEventListener(e, f); }
 };
-
-
-const commandProcessor = (function() {
-
-    var previousCommand = null;
-    var numExecutedCommands = 0;
-
-    var macroDefineRegex = /^\s*_([a-zA-Z][0-9a-zA-Z]*)\s*/;
-    var macroInvokeRegex = /^\s*@([a-zA-Z][0-9a-zA-Z]*)\s*$/;
-    var forLoopRegex = /^\s*\.for\s*$/;
-    var whitespaceRegex = /^\s*$/;
-
-
-    function reset()
-    {
-        previousCommand = null;
-        numExecutedCommands = 0;
-    }
-
-
-    function parseArgs(commandName, argsList)
-    {
-        var args = {};
-
-        if (commands.hasOwnProperty(commandName))
-        {
-            var params = commands[commandName].params;
-            var i = 0;
-
-            while (i < argsList.length)
-            {
-                var argName = argsList[i];
-                if (params.hasOwnProperty(argName))
-                {
-                    var numValues = params[argName].numValues;
-                    var values = [];
-                    i++;
-
-                    while ((i < argsList.length) && (numValues > 0))
-                    {
-                        values.push(argsList[i]);
-                        numValues--;
-                        i++;
-                    }
-
-                    if (values.length === params[argName].numValues)
-                    {
-                        args[argName] = values;
-                    }
-
-                    i--;
-                }
-
-                i++;
-            }
-        }
-
-        return args;
-    }
-
-
-    /*
-     * Takes the args in source and adds them to target.
-     */
-    function mergeArgs(target, source, includeId)
-    {
-        for (var arg in source.args)
-        {
-            if (!includeId && (arg == 'id')) continue;
-
-            target.args[arg] = [];
-            source.args[arg].forEach(value => target.args[arg].push(value));
-        }
-    }
-
-
-    function collapseGroup(it, jsContext)
-    {
-        let groupIt = it.clone();
-        let origData = groupIt.getData();
-        let prevType = parser.TYPE_GROUP;
-
-        groupIt.advance();
-
-        while (!groupIt.atEnd())
-        {
-            let data = groupIt.getData();
-
-            if (prevType == parser.TYPE_GROUP)
-            {
-                if (data.type == parser.TYPE_GROUP_SCRIPT)
-                {
-                    let scriptResult = jsContext.execute(data.value);
-                    origData.value += scriptResult;
-                    groupIt.remove();
-                }
-                else break;
-            }
-            else if (prevType == parser.TYPE_GROUP_SCRIPT)
-            {
-                if (data.type == parser.TYPE_GROUP)
-                {
-                    origData.value += data.value;
-                    groupIt.remove();
-                }
-                else if (data.type == parser.TYPE_GROUP_SCRIPT)
-                {
-                    let scriptResult = jsContext.execute(data.value);
-                    origData.value += scriptResult;
-                    groupIt.remove();
-                }
-                else break;
-            }
-            else break;
-
-            prevType = data.type;
-        }
-    }
-
-
-    function processCommand(it, cg)
-    {
-        let data = it.getData();
-        let commandInstance = null;
-        let command = {name: "", args: []};
-
-        while (data.type != parser.TYPE_COMMAND_BOUNDARY)
-        {
-            if (data.type == parser.TYPE_TEXT)
-            {
-                var trimmedValue = data.value.trim();
-                if (trimmedValue.length > 0)
-                {
-                    var chunks = trimmedValue.split(/\s+/);
-                    if (command.name.length == 0)
-                    {
-                        let chunk = chunks.shift();
-                        let index = chunk.lastIndexOf(":");
-                        if (index > 0)
-                        {
-                            command.name = chunk.substring(0, index);
-
-                            let id = chunk.substring(index + 1);
-                            if (id.length > 0)
-                            {
-                                command.args.push('id');
-                                command.args.push(id);
-                            }
-                        }
-                        else command.name = chunk;
-                    }
-                    chunks.forEach(chunk => command.args.push(chunk));
-                }
-            }
-            else if ((data.type == parser.TYPE_GROUP) || (data.type == parser.TYPE_STRING))
-            {
-                if (command.name.length > 0) command.args.push(data.value);
-            }
-
-            it.advance();
-            data = it.getData();
-        }
-
-        if (command.name.length > 0)
-        {
-            if ((command.name === ".") && (previousCommand !== null))
-            {
-                command.args = parseArgs(previousCommand.name, command.args);
-                mergeArgs(previousCommand, command, true);
-                command = previousCommand;
-            }
-            else
-            {
-                command.args = parseArgs(command.name, command.args);
-            }
-
-            // Clone the current command
-            previousCommand = {name: command.name, args: {}};
-            mergeArgs(previousCommand, command, false);
-
-            if (commands.hasOwnProperty(command.name))
-            {
-                /*
-                 * NOTE: init must be the
-                 * first executed command.
-                 */
-
-                if (numExecutedCommands == 0)
-                {
-                    if (command.name != "init")
-                    {
-                        commands['init'].createInstance(cg, {}, options);
-                    }
-
-                    commandInstance = commands[command.name].createInstance(cg, command.args, options);
-                    numExecutedCommands++;
-                }
-                else if (command.name != "init")
-                {
-                    commandInstance = commands[command.name].createInstance(cg, command.args, options);
-                    numExecutedCommands++;
-                }
-            }
-        }
-
-        return commandInstance;
-    }
-
-
-    function extractMacro(list, it, state)
-    {
-        let itStart = it.clone();
-        let itEnd = it.clone();
-        let data = it.getData();
-
-        let match = macroDefineRegex.exec(data.value);
-        let macroName = match[1];
-
-        data.value = data.value.substring(match[0].length);
-
-        itEnd.advance();
-        while (!itEnd.atEnd())
-        {
-            if ((itEnd.getData().type == parser.TYPE_COMMAND_BOUNDARY) &&
-                 itEnd.getData().value.includes(';;')) break;
-            itEnd.advance();
-        }
-
-        state.macros[macroName] = list.copy(itStart, itEnd);
-        itEnd.advance();
-        return itEnd;
-    }
-
-
-    function isMacroInvocation(it)
-    {
-        let result = false;
-
-        if ((it.getData().type == parser.TYPE_TEXT) &&
-             macroInvokeRegex.test(it.getData().value))
-        {
-            it = it.clone();
-            it.advance();
-
-            if (!it.atEnd() &&
-                (it.getData().type == parser.TYPE_COMMAND_BOUNDARY))
-            {
-                result = true;
-            }
-        }
-
-        return result;
-    }
-
-
-    function invokeMacro(it, cg, state)
-    {
-        it = it.clone();
-
-        let match = macroInvokeRegex.exec(it.getData().value);
-        let macroName = match[1];
-
-        if (state.macros.hasOwnProperty(macroName))
-        {
-            let macroNodes = state.macros[macroName].copy();
-            processNodes(macroNodes, cg, state);
-        }
-
-        it.advance();
-        it.advance();
-        return it;
-    }
-
-
-    function isForLoop(it)
-    {
-        if ((it.getData().type == parser.TYPE_TEXT) &&
-            forLoopRegex.test(it.getData().value))
-        {
-            it = it.clone();
-            let numScripts = 0;
-
-            it.advance();
-            while (!it.atEnd() && (numScripts < 3))
-            {
-                let type = it.getData().type;
-
-                if (type == parser.TYPE_SCRIPT)
-                {
-                    numScripts++;
-                }
-                else if ((type != parser.TYPE_TEXT) ||
-                         !whitespaceRegex.test(it.getData().value))
-                {
-                    return false;
-                }
-
-                it.advance();
-            }
-
-            while (!it.atEnd())
-            {
-                let type = it.getData().type;
-
-                if (type == parser.TYPE_COMMAND_BOUNDARY)
-                {
-                    return true;
-                }
-                else if ((type != parser.TYPE_TEXT) ||
-                         !whitespaceRegex.test(it.getData().value))
-                {
-                    return false;
-                }
-
-                it.advance();
-            }
-        }
-
-        return false;
-    }
-
-
-    function processForLoop(list, it, cg, state)
-    {
-        it = it.clone();
-        it.advance();
-
-        let scripts = [];
-        let type = it.getData().type;
-
-        while (type != parser.TYPE_COMMAND_BOUNDARY)
-        {
-            if (type == parser.TYPE_SCRIPT)
-                scripts.push(it.getData().value);
-
-            it.advance();
-            type = it.getData().type;
-        }
-
-        cg.jsContext.execute(scripts[0]);
-
-        it.advance();
-        let itContentStart = it.clone();
-
-        it.advance();
-        while (!it.atEnd())
-        {
-            if ((it.getData().type == parser.TYPE_COMMAND_BOUNDARY) &&
-                 it.getData().value.includes(';;')) break;
-            it.advance();
-        }
-
-        let contentNodes = list.copy(itContentStart, it);
-
-        for (let i=0; i < 100; i++)
-        {
-            let scriptResult = cg.jsContext.execute(scripts[1]);
-            if (scriptResult == 'true')
-            {
-                let nodes = contentNodes.copy();
-                processNodes(nodes, cg, state);
-            }
-            else break;
-
-            cg.jsContext.execute(scripts[2]);
-        }
-
-        it.advance();
-        return it;
-    }
-
-
-    function processNodes(list, cg, state)
-    {
-        let preprocessIt = list.getIterator();
-        let processIt = list.getIterator();
-
-        while (!processIt.atEnd())
-        {
-            while (!preprocessIt.atEnd())
-            {
-                let type = preprocessIt.getData().type;
-                let value = preprocessIt.getData().value;
-
-                if (type == parser.TYPE_COMMAND_BOUNDARY) break;
-                else if (type == parser.TYPE_GROUP)
-                {
-                    collapseGroup(preprocessIt, cg.jsContext);
-                    preprocessIt.advance();
-                }
-                else if (type == parser.TYPE_SCRIPT)
-                {
-                    let updateProcessIt = processIt.equals(preprocessIt);
-
-                    let scriptResult = cg.jsContext.execute(preprocessIt.getData().value);
-                    let tmpList = parser.parse(scriptResult);
-                    tmpList.trimEnd(parser.TYPE_COMMAND_BOUNDARY);
-
-                    preprocessIt.replaceWithList(tmpList);
-                    if (updateProcessIt) processIt = preprocessIt.clone();
-                }
-                else if ((type == parser.TYPE_TEXT) &&
-                          processIt.equals(preprocessIt) &&
-                          macroDefineRegex.test(value))
-                {
-                    processIt = extractMacro(list, processIt, state);
-                    preprocessIt = processIt.clone();
-                    if (processIt.atEnd()) return;
-                }
-                else if ((type == parser.TYPE_TEXT) &&
-                          processIt.equals(preprocessIt) &&
-                          isForLoop(processIt))
-                {
-                    processIt = processForLoop(list, processIt, cg, state);
-                    preprocessIt = processIt.clone();
-                    if (processIt.atEnd()) return;
-                }
-                else preprocessIt.advance();
-            }
-
-            if (processIt.atEnd()) break;
-
-            if (isMacroInvocation(processIt))
-            {
-                processIt = invokeMacro(processIt, cg, state);
-                preprocessIt = processIt.clone();
-            }
-            else
-            {
-                let commandInstance = processCommand(processIt, cg);
-                if (commandInstance)
-                {
-                    state.commandInstances.push(commandInstance);
-
-                    if (commandInstance.name && commandInstance.scriptInterface)
-                    {
-                        cg.jsContext.addGlobal(commandInstance.name,
-                                               commandInstance.scriptInterface);
-                    }
-                }
-
-                processIt.advance();
-                preprocessIt.advance();
-            }
-        }
-    }
-
-
-    function processInput(input, cg)
-    {
-        let state =
-        {
-            macros: {},
-            commandInstances: []
-        };
-
-        let list = parser.parse(input);
-        processNodes(list, cg, state);
-
-        state.commandInstances.forEach(instance => instance.render());
-    }
-
-    return {
-        reset: function() { reset(); },
-        processInput: function(input, cg) { return processInput(input, cg); },
-    };
-})();
 
 
 function processElement(sourceElement)
@@ -895,8 +425,12 @@ function processElement(sourceElement)
 
     if (cachedValue === null)
     {
-        commandProcessor.reset();
-        commandProcessor.processInput(sourceText, cg);
+        const jsContext = jsContextFactory.newContext();
+        jsContext.addConstLocal('M', Math);
+        jsContext.addConstLocal('P', (x, y) => new graphUtils.Point(x, y));
+        jsContext.addConstLocal('B', (x, y, width, height) => new graphUtils.Bounds(x, y, width, height));
+        jsContext.addConstLocal('cg', new CommandsApi(cg));
+        jsContext.execute(sourceText)
 
         if (Cache.enabled()) Cache.put(sourceText, svgElement);
     }
@@ -992,10 +526,12 @@ function getTestObject()
 {
     let testObject = {};
 
+    /*
     if (options.test)
     {
         testObject.parser = parser;
     }
+    */
 
     return testObject;
 }

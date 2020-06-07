@@ -1,9 +1,6 @@
 /* Copyright (c) 2019, Piet Hein Schouten. All rights reserved.
  * Licensed under the terms of the MIT license.
  */
-import {graphUtils} from './graph_utils.js';
-
-
 export const jsContextFactory = {
     newContext: function() { return new JSContext(); }
 };
@@ -11,87 +8,46 @@ export const jsContextFactory = {
 
 function JSContext()
 {
-    var globalContext = {};
+    let constLocals = {};
 
-    this.addGlobal = function(name, value)
+    this.addConstLocal = function(name, value)
     {
-        globalContext[name] = value;
+        constLocals[name] = value;
     }
 
     this.execute = function(code)
     {
-        return execute(code, globalContext);
+        return execute(constLocals, code);
     }
 }
 
 
-const defaultLocalVars = [
-    (x, y) => new graphUtils.Point(x, y),
-    (x, y, width, height) => new graphUtils.Bounds(x, y, width, height)
-];
-
-const defaultLocalVarsCode = `
-const M = Math;
-const P = __dlv[0];
-const B = __dlv[1];
-`;
-
-const globalVarSubstituteRegex = /\$\$([a-zA-Z_][a-zA-Z0-9_]*)/g;
-const globalVarSubstituteReplacer = (match, p1) =>
+function execute(constLocals, code)
 {
-    return (globalContext.hasOwnProperty(p1)) ?
-            globalContext[p1] : "";
-}
+    let executed = false;
 
+    let locals = [];
+    let localsCode = "";
 
-function execute(code, globalContext)
-{
-    var result = "";
-
-    if (/^\s*=/.test(code))
+    for (const local in constLocals)
     {
-        code = code.replace("=", "return ");
+        localsCode += `const ${local}=__loc[${locals.length}];`;
+        locals.push(constLocals[local]);
     }
 
-    code = code.replace(globalVarSubstituteRegex, (match, p1) =>
-    {
-        return (globalContext.hasOwnProperty(p1)) ?  globalContext[p1] : "";
-    });
-
-    code = `'use strict';${defaultLocalVarsCode}${code}`;
+    code = `'use strict';${localsCode}${code}`;
 
     try
     {
-        let func = new Function('$', '__dlv', code);
-        let funcReturnValue = func(globalContext, defaultLocalVars);
-
-        switch (typeof funcReturnValue)
-        {
-            case 'string':
-            case 'number':
-                result = funcReturnValue.toString();
-                break;
-
-            case 'object':
-                switch (funcReturnValue.constructor.name)
-                {
-                    case 'Point':
-                    case 'Bounds':
-                        result = funcReturnValue.toString();
-                        break;
-                }
-                break;
-
-            case 'boolean':
-                result = funcReturnValue.toString();
-                break;
-        }
+        let func = new Function('__loc', code);
+        func(locals);
+        executed = true;
     }
     catch(error)
     {
         console.log(error);
     }
 
-    return result;
+    return executed;
 }
 
