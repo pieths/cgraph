@@ -1,3 +1,6 @@
+/* Copyright (c) 2020, Piet Hein Schouten. All rights reserved.
+ * Licensed under the terms of the MIT license.
+ */
 const CLICK_EVENT_TYPE = 'click';
 const MOUSE_DOWN_EVENT_TYPE = 'mousedown';
 const MOUSE_MOVE_EVENT_TYPE = 'mousemove';

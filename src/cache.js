@@ -1,3 +1,6 @@
+/* Copyright (c) 2020, Piet Hein Schouten. All rights reserved.
+ * Licensed under the terms of the MIT license.
+ */
 var cache = null;
 var maxSize = 10;
 
